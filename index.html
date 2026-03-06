@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HydroDome SCADA — Command &amp; Control</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap');
+  
+  * { margin:0; padding:0; box-sizing:border-box; }
+  
+  :root {
+    --bg: #0a0e17;
+    --panel: #111827;
+    --panel-border: #1e2a3a;
+    --text: #e2e8f0;
+    --text-dim: #64748b;
+    --accent: #3b82f6;
+    --green: #22c55e;
+    --yellow: #eab308;
+    --red: #ef4444;
+    --orange: #f97316;
+    --cyan: #06b6d4;
+  }
+  
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+    height: 100vh;
+  }
+  
+  /* TOP BAR */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--panel);
+    border-bottom: 1px solid var(--panel-border);
+    padding: 8px 20px;
+    height: 48px;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 16px; }
+  .topbar-logo {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--cyan);
+    letter-spacing: 1px;
+  }
+  .topbar-logo span { color: var(--orange); }
+  .topbar-divider { width:1px; height:24px; background: var(--panel-border); }
+  .topbar-label {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+  .topbar-right { display: flex; align-items: center; gap: 20px; }
+  .topbar-status {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+  }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  .status-dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .status-dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+  .status-dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); animation: pulse-fast 0.8s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+  @keyframes pulse-fast { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .clock {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  /* MAIN GRID */
+  .main {
+    display: grid;
+    grid-template-columns: 280px 1fr 300px;
+    grid-template-rows: 1fr;
+    height: calc(100vh - 48px);
+    gap: 0;
+  }
+
+  /* LEFT PANEL */
+  .left-panel {
+    background: var(--panel);
+    border-right: 1px solid var(--panel-border);
+    padding: 16px;
+    overflow-y: auto;
+  }
+  .section-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+  
+  /* ZONE CARDS */
+  .zone-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .zone-card:hover { border-color: var(--accent); }
+  .zone-card.active { border-color: var(--red); background: rgba(239,68,68,0.05); }
+  .zone-card.standby { border-color: var(--green); }
+  .zone-card.deploying { border-color: var(--yellow); background: rgba(234,179,8,0.05); }
+  .zone-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .zone-name { font-weight: 600; font-size: 13px; }
+  .zone-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+  .badge-active { background: rgba(239,68,68,0.2); color: var(--red); }
+  .badge-standby { background: rgba(34,197,94,0.2); color: var(--green); }
+  .badge-deploying { background: rgba(234,179,8,0.2); color: var(--yellow); }
+  .zone-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .zone-stat {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .zone-stat strong { color: var(--text); }
+
+  /* CENTER MAP */
+  .center-panel {
+    position: relative;
+    background: var(--bg);
+    overflow: hidden;
+  }
+  .map-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+  .map-bg {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 30% 40%, rgba(6,182,212,0.03) 0%, transparent 50%),
+      radial-gradient(circle at 70% 60%, rgba(239,68,68,0.05) 0%, transparent 40%);
+  }
+  /* Grid lines */
+  .map-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(30,42,58,0.4) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(30,42,58,0.4) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+  
+  /* Tower nodes on map */
+  .tower-node {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s;
+    z-index: 2;
+  }
+  .tower-node::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 1px solid;
+    opacity: 0.3;
+  }
+  .tower-green { background: rgba(34,197,94,0.3); border: 2px solid var(--green); color: var(--green); }
+  .tower-green::after { border-color: var(--green); }
+  .tower-yellow { background: rgba(234,179,8,0.3); border: 2px solid var(--yellow); color: var(--yellow); }
+  .tower-yellow::after { border-color: var(--yellow); }
+  .tower-red { background: rgba(239,68,68,0.3); border: 2px solid var(--red); color: var(--red); }
+  .tower-red::after { border-color: var(--red); animation: pulse-ring 1.5s infinite; }
+  @keyframes pulse-ring { 0%{transform:scale(1);opacity:0.3} 100%{transform:scale(1.8);opacity:0} }
+  
+  /* Spray radius visualization */
+  .spray-radius {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px dashed;
+    opacity: 0.15;
+    pointer-events: none;
+  }
+  .spray-green { border-color: var(--green); background: rgba(34,197,94,0.03); }
+  .spray-red { border-color: var(--red); background: rgba(239,68,68,0.06); }
+  .spray-yellow { border-color: var(--yellow); background: rgba(234,179,8,0.04); }
+  
+  /* Zone overlays */
+  .zone-overlay {
+    position: absolute;
+    border: 1px dashed;
+    border-radius: 8px;
+    opacity: 0.2;
+    pointer-events: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+  
+  /* Buildings on map */
+  .building {
+    position: absolute;
+    background: rgba(100,116,139,0.2);
+    border: 1px solid rgba(100,116,139,0.3);
+    border-radius: 2px;
+    z-index: 1;
+  }
+  .building-label {
+    position: absolute;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    top: -14px;
+    left: 0;
+  }
+  .building.fire {
+    border-color: var(--red);
+    background: rgba(239,68,68,0.15);
+    animation: fire-glow 1s infinite alternate;
+  }
+  @keyframes fire-glow { 0%{box-shadow:0 0 8px rgba(239,68,68,0.3)} 100%{box-shadow:0 0 20px rgba(239,68,68,0.6)} }
+  
+  /* Connection lines (LoRa mesh) */
+  .mesh-lines {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+  .mesh-lines svg { width:100%; height:100%; }
+  .mesh-line { stroke: rgba(6,182,212,0.12); stroke-width: 1; stroke-dasharray: 4 4; }
+  .mesh-line.active { stroke: rgba(239,68,68,0.25); stroke-width: 1.5; stroke-dasharray: none; }
+  
+  /* Map legend */
+  .map-legend {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    background: rgba(17,24,39,0.9);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    z-index: 5;
+  }
+  .legend-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 11px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid; }
+  
+  /* Map header overlay */
+  .map-header {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    z-index: 5;
+  }
+  .map-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+  }
+  .map-subtitle { font-size: 18px; font-weight: 700; margin-top: 2px; }
+  
+  /* Alert banner */
+  .alert-banner {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: rgba(239,68,68,0.1);
+    border: 1px solid var(--red);
+    border-radius: 6px;
+    padding: 8px 14px;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: alert-flash 2s infinite;
+  }
+  @keyframes alert-flash { 0%,100%{opacity:1} 50%{opacity:0.7} }
+  .alert-icon { font-size: 16px; }
+  .alert-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--red);
+    font-weight: 600;
+  }
+  .alert-sub { font-size: 10px; color: var(--text-dim); }
+
+  /* RIGHT PANEL */
+  .right-panel {
+    background: var(--panel);
+    border-left: 1px solid var(--panel-border);
+    padding: 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  /* GAUGE */
+  .gauge-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .gauge-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 12px;
+    text-align: center;
+  }
+  .gauge-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+  .gauge-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    font-weight: 700;
+  }
+  .gauge-unit {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-weight: 400;
+  }
+  .gauge-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 2px;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+  .gauge-fill { height: 100%; border-radius: 2px; transition: width 1s; }
+  
+  /* WATER LEVELS */
+  .water-tank {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 6px;
+  }
+  .tank-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .tank-name { font-size: 12px; font-weight: 600; }
+  .tank-pct {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .tank-bar {
+    width: 100%;
+    height: 20px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+  }
+  .tank-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 2s;
+    position: relative;
+  }
+  .tank-fill::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0; bottom: 0; left: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
+    animation: shimmer 3s infinite;
+  }
+  @keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+  .tank-detail {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  
+  /* PRESSURE CHART */
+  .chart-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 12px;
+  }
+  .chart-canvas { width: 100%; height: 80px; }
+  
+  /* EVENT LOG */
+  .event-log {
+    flex: 1;
+    min-height: 0;
+  }
+  .log-entry {
+    display: flex;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    font-size: 11px;
+  }
+  .log-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    min-width: 50px;
+  }
+  .log-icon { font-size: 12px; }
+  .log-msg { color: var(--text); line-height: 1.4; }
+  .log-msg.critical { color: var(--red); }
+  .log-msg.warning { color: var(--yellow); }
+
+  /* BOTTOM STATUS BAR */
+  .statusbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 28px;
+    background: var(--panel);
+    border-top: 1px solid var(--panel-border);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+    z-index: 100;
+  }
+  .statusbar-item { display: flex; align-items: center; gap: 6px; }
+  .statusbar-dot { width: 6px; height: 6px; border-radius: 50%; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="topbar-logo">HYDRO<span>DOME</span></div>
+    <div class="topbar-divider"></div>
+    <div class="topbar-label">SCADA Command &amp; Control</div>
+    <div class="topbar-divider"></div>
+    <div class="topbar-status">
+      <div class="status-dot red"></div>
+      <span style="color:var(--red);font-weight:600;">THREAT ACTIVE — ZONE C</span>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <div class="topbar-status">
+      <div class="status-dot green"></div>
+      <span>LoRa Mesh: 40/40 nodes</span>
+    </div>
+    <div class="topbar-status">
+      <div class="status-dot green"></div>
+      <span>SCADA Link: OK</span>
+    </div>
+    <div class="clock" id="clock">2026-03-06 15:42:18 PST</div>
+  </div>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div class="main">
+  
+  <!-- LEFT: ZONE LIST -->
+  <div class="left-panel">
+    <div class="section-title">Zone Status — Fort St. James</div>
+    
+    <div class="zone-card active">
+      <div class="zone-header">
+        <span class="zone-name">Zone C — Industrial East</span>
+        <span class="zone-badge badge-active">Active</span>
+      </div>
+      <div class="zone-stats">
+        <div class="zone-stat">Towers: <strong style="color:var(--red)">5/5 spraying</strong></div>
+        <div class="zone-stat">Water: <strong style="color:var(--yellow)">62%</strong></div>
+        <div class="zone-stat">Pressure: <strong>48 PSI</strong></div>
+        <div class="zone-stat">Flow: <strong>820 GPM</strong></div>
+      </div>
+    </div>
+    
+    <div class="zone-card deploying">
+      <div class="zone-header">
+        <span class="zone-name">Zone B — First Nations</span>
+        <span class="zone-badge badge-deploying">Deploying</span>
+      </div>
+      <div class="zone-stats">
+        <div class="zone-stat">Towers: <strong style="color:var(--yellow)">3/4 ready</strong></div>
+        <div class="zone-stat">Water: <strong style="color:var(--green)">94%</strong></div>
+        <div class="zone-stat">Pressure: <strong>55 PSI</strong></div>
+        <div class="zone-stat">Flow: <strong>0 GPM</strong></div>
+      </div>
+    </div>
+    
+    <div class="zone-card standby">
+      <div class="zone-header">
+        <span class="zone-name">Zone A — Hospital / Shelter</span>
+        <span class="zone-badge badge-standby">Standby</span>
+      </div>
+      <div class="zone-stats">
+        <div class="zone-stat">Towers: <strong>5/5 ready</strong></div>
+        <div class="zone-stat">Water: <strong style="color:var(--green)">98%</strong></div>
+        <div class="zone-stat">Pressure: <strong>52 PSI</strong></div>
+        <div class="zone-stat">Flow: <strong>0 GPM</strong></div>
+      </div>
+    </div>
+    
+    <div class="zone-card standby">
+      <div class="zone-header">
+        <span class="zone-name">Zone D — Downtown Core</span>
+        <span class="zone-badge badge-standby">Standby</span>
+      </div>
+      <div class="zone-stats">
+        <div class="zone-stat">Towers: <strong>4/4 ready</strong></div>
+        <div class="zone-stat">Water: <strong style="color:var(--green)">97%</strong></div>
+        <div class="zone-stat">Pressure: <strong>50 PSI</strong></div>
+        <div class="zone-stat">Flow: <strong>0 GPM</strong></div>
+      </div>
+    </div>
+    
+    <div class="zone-card standby">
+      <div class="zone-header">
+        <span class="zone-name">Zone E — Stuart Lake Marina</span>
+        <span class="zone-badge badge-standby">Standby</span>
+      </div>
+      <div class="zone-stats">
+        <div class="zone-stat">Towers: <strong>4/4 ready</strong></div>
+        <div class="zone-stat">Water: <strong style="color:var(--green)">99%</strong></div>
+        <div class="zone-stat">Pressure: <strong>51 PSI</strong></div>
+        <div class="zone-stat">Flow: <strong>0 GPM</strong></div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px">
+      <div class="section-title">System Summary</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;line-height:2;color:var(--text-dim)">
+        Total Towers: <strong style="color:var(--text)">40</strong><br>
+        Active Spraying: <strong style="color:var(--red)">5</strong><br>
+        Deploying: <strong style="color:var(--yellow)">3</strong><br>
+        Standby: <strong style="color:var(--green)">32</strong><br>
+        Total Cistern Capacity: <strong style="color:var(--text)">320,000 gal</strong><br>
+        Current Reserve: <strong style="color:var(--cyan)">284,600 gal</strong><br>
+        Est. Runtime @ Current Flow: <strong style="color:var(--text)">5h 47m</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER: MAP -->
+  <div class="center-panel">
+    <div class="map-bg"></div>
+    <div class="map-grid"></div>
+    
+    <!-- Mesh network lines -->
+    <div class="mesh-lines">
+      <svg viewBox="0 0 1000 800" preserveAspectRatio="none">
+        <!-- Zone C mesh (active) -->
+        <line class="mesh-line active" x1="680" y1="280" x2="720" y2="340"/>
+        <line class="mesh-line active" x1="720" y1="340" x2="760" y2="290"/>
+        <line class="mesh-line active" x1="760" y1="290" x2="740" y2="380"/>
+        <line class="mesh-line active" x1="680" y1="280" x2="740" y2="380"/>
+        <line class="mesh-line active" x1="700" y1="400" x2="740" y2="380"/>
+        <line class="mesh-line active" x1="700" y1="400" x2="680" y2="280"/>
+        <!-- Zone A mesh -->
+        <line class="mesh-line" x1="200" y1="200" x2="260" y2="240"/>
+        <line class="mesh-line" x1="260" y1="240" x2="220" y2="300"/>
+        <line class="mesh-line" x1="200" y1="200" x2="220" y2="300"/>
+        <line class="mesh-line" x1="260" y1="240" x2="300" y2="200"/>
+        <line class="mesh-line" x1="300" y1="200" x2="280" y2="310"/>
+        <line class="mesh-line" x1="220" y1="300" x2="280" y2="310"/>
+        <!-- Zone B mesh -->
+        <line class="mesh-line" x1="420" y1="160" x2="480" y2="200"/>
+        <line class="mesh-line" x1="480" y1="200" x2="440" y2="260"/>
+        <line class="mesh-line" x1="420" y1="160" x2="440" y2="260"/>
+        <line class="mesh-line" x1="480" y1="200" x2="500" y2="280"/>
+        <!-- Zone D mesh -->
+        <line class="mesh-line" x1="340" y1="420" x2="400" y2="460"/>
+        <line class="mesh-line" x1="400" y1="460" x2="360" y2="520"/>
+        <line class="mesh-line" x1="340" y1="420" x2="360" y2="520"/>
+        <line class="mesh-line" x1="400" y1="460" x2="420" y2="530"/>
+        <!-- Zone E mesh -->
+        <line class="mesh-line" x1="160" y1="500" x2="220" y2="540"/>
+        <line class="mesh-line" x1="220" y1="540" x2="180" y2="600"/>
+        <line class="mesh-line" x1="160" y1="500" x2="180" y2="600"/>
+        <line class="mesh-line" x1="220" y1="540" x2="260" y2="590"/>
+        <!-- Cross-zone links -->
+        <line class="mesh-line" x1="280" y1="310" x2="340" y2="420" style="stroke-dasharray:8 8"/>
+        <line class="mesh-line" x1="300" y1="200" x2="420" y2="160" style="stroke-dasharray:8 8"/>
+        <line class="mesh-line" x1="500" y1="280" x2="680" y2="280" style="stroke-dasharray:8 8;stroke:rgba(239,68,68,0.15)"/>
+        <line class="mesh-line" x1="360" y1="520" x2="260" y2="590" style="stroke-dasharray:8 8"/>
+      </svg>
+    </div>
+    
+    <!-- ZONE OVERLAYS -->
+    <div class="zone-overlay" style="left:14%;top:16%;width:18%;height:24%;border-color:var(--green);color:var(--green)">ZONE A</div>
+    <div class="zone-overlay" style="left:38%;top:12%;width:16%;height:22%;border-color:var(--yellow);color:var(--yellow)">ZONE B</div>
+    <div class="zone-overlay" style="left:62%;top:22%;width:18%;height:26%;border-color:var(--red);color:var(--red);opacity:0.35">ZONE C</div>
+    <div class="zone-overlay" style="left:30%;top:46%;width:16%;height:20%;border-color:var(--green);color:var(--green)">ZONE D</div>
+    <div class="zone-overlay" style="left:12%;top:56%;width:18%;height:22%;border-color:var(--green);color:var(--green)">ZONE E</div>
+    
+    <!-- BUILDINGS -->
+    <div class="building" style="left:17%;top:22%;width:40px;height:30px;">
+      <div class="building-label">Hospital</div>
+    </div>
+    <div class="building" style="left:24%;top:28%;width:35px;height:25px;">
+      <div class="building-label">Emergency Shelter</div>
+    </div>
+    <div class="building" style="left:42%;top:18%;width:30px;height:25px;">
+      <div class="building-label">Community Centre</div>
+    </div>
+    <div class="building fire" style="left:68%;top:32%;width:50px;height:35px;">
+      <div class="building-label" style="color:var(--red)">⚠ Mill Complex</div>
+    </div>
+    <div class="building" style="left:72%;top:40%;width:30px;height:20px;">
+      <div class="building-label">Fuel Storage</div>
+    </div>
+    <div class="building" style="left:35%;top:52%;width:35px;height:20px;">
+      <div class="building-label">Town Hall</div>
+    </div>
+    <div class="building" style="left:16%;top:64%;width:30px;height:20px;">
+      <div class="building-label">Marina Office</div>
+    </div>
+    
+    <!-- SPRAY RADII -->
+    <div class="spray-radius spray-red" style="left:calc(65% - 50px);top:calc(28% - 50px);width:100px;height:100px;"></div>
+    <div class="spray-radius spray-red" style="left:calc(69% - 50px);top:calc(35% - 50px);width:100px;height:100px;"></div>
+    <div class="spray-radius spray-red" style="left:calc(73% - 50px);top:calc(29% - 50px);width:100px;height:100px;"></div>
+    <div class="spray-radius spray-red" style="left:calc(71% - 50px);top:calc(42% - 50px);width:100px;height:100px;"></div>
+    <div class="spray-radius spray-red" style="left:calc(67% - 50px);top:calc(45% - 50px);width:100px;height:100px;"></div>
+    
+    <!-- TOWER NODES — Zone A (Standby) -->
+    <div class="tower-node tower-green" style="left:17%;top:20%;" title="A-01">01</div>
+    <div class="tower-node tower-green" style="left:23%;top:24%;" title="A-02">02</div>
+    <div class="tower-node tower-green" style="left:19%;top:30%;" title="A-03">03</div>
+    <div class="tower-node tower-green" style="left:27%;top:20%;" title="A-04">04</div>
+    <div class="tower-node tower-green" style="left:25%;top:31%;" title="A-05">05</div>
+
+    <!-- Zone B (Deploying) -->
+    <div class="tower-node tower-yellow" style="left:40%;top:16%;" title="B-01">06</div>
+    <div class="tower-node tower-yellow" style="left:46%;top:20%;" title="B-02">07</div>
+    <div class="tower-node tower-yellow" style="left:42%;top:26%;" title="B-03">08</div>
+    <div class="tower-node tower-green" style="left:48%;top:28%;" title="B-04">09</div>
+
+    <!-- Zone C (Active - spraying) -->
+    <div class="tower-node tower-red" style="left:65%;top:28%;" title="C-01">10</div>
+    <div class="tower-node tower-red" style="left:69%;top:34%;" title="C-02">11</div>
+    <div class="tower-node tower-red" style="left:73%;top:29%;" title="C-03">12</div>
+    <div class="tower-node tower-red" style="left:71%;top:42%;" title="C-04">13</div>
+    <div class="tower-node tower-red" style="left:67%;top:45%;" title="C-05">14</div>
+
+    <!-- Zone D (Standby) -->
+    <div class="tower-node tower-green" style="left:32%;top:48%;" title="D-01">15</div>
+    <div class="tower-node tower-green" style="left:38%;top:52%;" title="D-02">16</div>
+    <div class="tower-node tower-green" style="left:34%;top:56%;" title="D-03">17</div>
+    <div class="tower-node tower-green" style="left:40%;top:58%;" title="D-04">18</div>
+
+    <!-- Zone E (Standby) -->
+    <div class="tower-node tower-green" style="left:14%;top:56%;" title="E-01">19</div>
+    <div class="tower-node tower-green" style="left:20%;top:60%;" title="E-02">20</div>
+    <div class="tower-node tower-green" style="left:16%;top:66%;" title="E-03">21</div>
+    <div class="tower-node tower-green" style="left:24%;top:64%;" title="E-04">22</div>
+    
+    <!-- Map header -->
+    <div class="map-header">
+      <div class="map-title">Network Topology — Live</div>
+      <div class="map-subtitle">Fort St. James Pilot Deployment</div>
+    </div>
+    
+    <!-- Alert banner -->
+    <div class="alert-banner">
+      <span class="alert-icon">🔥</span>
+      <div>
+        <div class="alert-text">FIRE DETECTED — ZONE C INDUSTRIAL</div>
+        <div class="alert-sub">Ember cast from NE treeline • Wind: 28 km/h NE • Temp: 34°C</div>
+      </div>
+    </div>
+    
+    <!-- Legend -->
+    <div class="map-legend">
+      <div class="legend-title">Tower Status</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(239,68,68,0.3);border-color:var(--red)"></div> Active — Spraying</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(234,179,8,0.3);border-color:var(--yellow)"></div> Deploying</div>
+      <div class="legend-item"><div class="legend-dot" style="background:rgba(34,197,94,0.3);border-color:var(--green)"></div> Standby — Ready</div>
+      <div style="margin-top:6px">
+        <div class="legend-item" style="font-size:10px;color:var(--text-dim)"><span style="color:var(--cyan)">---</span> LoRa Mesh Link</div>
+        <div class="legend-item" style="font-size:10px;color:var(--text-dim)"><span style="border:1px dashed var(--red);width:10px;height:10px;display:inline-block;border-radius:50%"></span> Spray Coverage (1 ha)</div>
+      </div>
+    </div>
+    
+    <!-- Wind indicator -->
+    <div style="position:absolute;top:80px;right:16px;z-index:5;text-align:right;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">Wind</div>
+      <div style="font-size:24px;margin:2px 0;">↙</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--orange);">28 km/h</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);">NE gusting 42</div>
+    </div>
+    
+    <!-- Fire origin indicator -->
+    <div style="position:absolute;right:6%;top:18%;z-index:3;text-align:center;">
+      <div style="font-size:28px;animation:pulse-fast 0.8s infinite;">🔥</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--red);margin-top:2px;">ORIGIN</div>
+    </div>
+    
+    <!-- Smoke plume indicator -->
+    <div style="position:absolute;right:4%;top:10%;z-index:3;opacity:0.4;font-size:40px;">🌫️</div>
+    
+  </div>
+
+  <!-- RIGHT: TELEMETRY -->
+  <div class="right-panel">
+    <div class="section-title">System Telemetry</div>
+    
+    <div class="gauge-row">
+      <div class="gauge-card">
+        <div class="gauge-label">Flow Rate</div>
+        <div class="gauge-value" style="color:var(--red)">820<span class="gauge-unit"> GPM</span></div>
+        <div class="gauge-bar"><div class="gauge-fill" style="width:68%;background:var(--red)"></div></div>
+      </div>
+      <div class="gauge-card">
+        <div class="gauge-label">Main Pressure</div>
+        <div class="gauge-value" style="color:var(--cyan)">48<span class="gauge-unit"> PSI</span></div>
+        <div class="gauge-bar"><div class="gauge-fill" style="width:60%;background:var(--cyan)"></div></div>
+      </div>
+    </div>
+    
+    <div class="gauge-row">
+      <div class="gauge-card">
+        <div class="gauge-label">Pump RPM</div>
+        <div class="gauge-value" style="color:var(--orange)">2,840</div>
+        <div class="gauge-bar"><div class="gauge-fill" style="width:78%;background:var(--orange)"></div></div>
+      </div>
+      <div class="gauge-card">
+        <div class="gauge-label">Generator</div>
+        <div class="gauge-value" style="color:var(--green)">14.2<span class="gauge-unit"> kW</span></div>
+        <div class="gauge-bar"><div class="gauge-fill" style="width:71%;background:var(--green)"></div></div>
+      </div>
+    </div>
+    
+    <div class="section-title">Cistern Levels</div>
+    
+    <div class="water-tank">
+      <div class="tank-header">
+        <span class="tank-name">Zone C — Cisterns (5)</span>
+        <span class="tank-pct" style="color:var(--yellow)">62%</span>
+      </div>
+      <div class="tank-bar">
+        <div class="tank-fill" style="width:62%;background:linear-gradient(90deg,var(--yellow),var(--orange))"></div>
+      </div>
+      <div class="tank-detail">
+        <span>24,800 / 40,000 gal</span>
+        <span>↓ 14 GPM drain</span>
+      </div>
+    </div>
+    
+    <div class="water-tank">
+      <div class="tank-header">
+        <span class="tank-name">Zone B — Cisterns (4)</span>
+        <span class="tank-pct" style="color:var(--green)">94%</span>
+      </div>
+      <div class="tank-bar">
+        <div class="tank-fill" style="width:94%;background:linear-gradient(90deg,var(--cyan),var(--green))"></div>
+      </div>
+      <div class="tank-detail">
+        <span>30,080 / 32,000 gal</span>
+        <span>● Full</span>
+      </div>
+    </div>
+    
+    <div class="water-tank">
+      <div class="tank-header">
+        <span class="tank-name">Zone A — Cisterns (5)</span>
+        <span class="tank-pct" style="color:var(--green)">98%</span>
+      </div>
+      <div class="tank-bar">
+        <div class="tank-fill" style="width:98%;background:linear-gradient(90deg,var(--cyan),var(--green))"></div>
+      </div>
+      <div class="tank-detail">
+        <span>39,200 / 40,000 gal</span>
+        <span>● Full</span>
+      </div>
+    </div>
+    
+    <div class="section-title">Pressure Trend — Zone C</div>
+    <div class="chart-card">
+      <canvas class="chart-canvas" id="pressureChart"></canvas>
+    </div>
+    
+    <div class="section-title">Event Log</div>
+    <div class="event-log">
+      <div class="log-entry">
+        <span class="log-time">15:42</span>
+        <span class="log-icon">🔴</span>
+        <span class="log-msg critical">Zone C — All 5 towers active, spray logic engaged</span>
+      </div>
+      <div class="log-entry">
+        <span class="log-time">15:41</span>
+        <span class="log-icon">🟡</span>
+        <span class="log-msg warning">Zone B — Towers B-01, B-02, B-03 deploying (precautionary)</span>
+      </div>
+      <div class="log-entry">
+        <span class="log-time">15:40</span>
+        <span class="log-icon">🔴</span>
+        <span class="log-msg critical">FIRE DETECTED — Ember cast at Mill Complex, Zone C</span>
+      </div>
+      <div class="log-entry">
+        <span class="log-time">15:39</span>
+        <span class="log-icon">🟡</span>
+        <span class="log-msg warning">Wind shift detected: NE 28 km/h gusting 42</span>
+      </div>
+      <div class="log-entry">
+        <span class="log-time">15:38</span>
+        <span class="log-icon">⚪</span>
+        <span class="log-msg">Zone C — VFD ramping pump to 2840 RPM</span>
+      </div>
+      <div class="log-entry">
+        <span class="log-time">15:37</span>
+        <span class="log-icon">⚪</span>
+        <span class="log-msg">Backflow preventer valve — closed confirmed (all zones)</span>
+      </div>
+      <div class="log-entry">
+        <span class="log-time">15:35</span>
+        <span class="log-icon">🟢</span>
+        <span class="log-msg">System health check — all 40 nodes reporting nominal</span>
+      </div>
+      <div class="log-entry">
+        <span class="log-time">15:30</span>
+        <span class="log-icon">⚪</span>
+        <span class="log-msg">Smoke plume detected NE treeline — monitoring initiated</span>
+      </div>
+    </div>
+  </div>
+  
+</div>
+
+<!-- BOTTOM STATUS BAR -->
+<div class="statusbar">
+  <div class="statusbar-item"><div class="statusbar-dot" style="background:var(--green)"></div> SCADA v2.4.1</div>
+  <div class="statusbar-item"><div class="statusbar-dot" style="background:var(--green)"></div> LoRa Mesh: 40/40</div>
+  <div class="statusbar-item"><div class="statusbar-dot" style="background:var(--green)"></div> Generator: Online</div>
+  <div class="statusbar-item"><div class="statusbar-dot" style="background:var(--green)"></div> Municipal Feed: Connected</div>
+  <div class="statusbar-item"><div class="statusbar-dot" style="background:var(--yellow)"></div> AHJ Dashboard: 1 operator</div>
+  <div class="statusbar-item" style="margin-left:auto">Carmanah Wildfire × HydroDome Systems</div>
+</div>
+
+<script>
+// Live clock
+function updateClock() {
+  const now = new Date();
+  const opts = { timeZone:'America/Los_Angeles', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false };
+  document.getElementById('clock').textContent = now.toLocaleString('en-CA', opts).replace(',','') + ' PST';
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// Simple pressure chart
+const canvas = document.getElementById('pressureChart');
+const ctx = canvas.getContext('2d');
+function drawChart() {
+  const w = canvas.width = canvas.offsetWidth * 2;
+  const h = canvas.height = canvas.offsetHeight * 2;
+  ctx.scale(2,2);
+  const cw = canvas.offsetWidth;
+  const ch = canvas.offsetHeight;
+  
+  // Background
+  ctx.fillStyle = 'transparent';
+  ctx.clearRect(0,0,cw,ch);
+  
+  // Grid lines
+  ctx.strokeStyle = 'rgba(30,42,58,0.5)';
+  ctx.lineWidth = 0.5;
+  for(let i=0;i<5;i++) {
+    const y = (ch/5)*i + 10;
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(cw,y); ctx.stroke();
+  }
+  
+  // Pressure data (simulated drop when fire starts)
+  const data = [52,52,51,52,52,53,52,51,52,50,48,46,44,43,44,46,48,48,47,48];
+  const step = cw / (data.length - 1);
+  
+  // Fill
+  ctx.beginPath();
+  ctx.moveTo(0, ch);
+  data.forEach((v,i) => {
+    const x = i * step;
+    const y = ch - ((v - 40) / 20) * ch;
+    if(i===0) ctx.lineTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.lineTo(cw, ch);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0,0,0,ch);
+  grad.addColorStop(0,'rgba(6,182,212,0.15)');
+  grad.addColorStop(1,'rgba(6,182,212,0)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+  
+  // Line
+  ctx.beginPath();
+  data.forEach((v,i) => {
+    const x = i * step;
+    const y = ch - ((v - 40) / 20) * ch;
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle = '#06b6d4';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  
+  // Current value dot
+  const lastX = (data.length-1)*step;
+  const lastY = ch - ((data[data.length-1]-40)/20)*ch;
+  ctx.beginPath();
+  ctx.arc(lastX, lastY, 3, 0, Math.PI*2);
+  ctx.fillStyle = '#06b6d4';
+  ctx.fill();
+  
+  // Labels
+  ctx.fillStyle = '#64748b';
+  ctx.font = '9px JetBrains Mono';
+  ctx.fillText('60 PSI', 2, 12);
+  ctx.fillText('40 PSI', 2, ch - 2);
+  ctx.fillText('15:30', 2, ch + 12);
+  ctx.fillText('NOW', cw - 24, ch + 12);
+}
+setTimeout(drawChart, 100);
+window.addEventListener('resize', drawChart);
+</script>
+
+</body>
+</html>
