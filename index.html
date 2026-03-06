@@ -5,964 +5,708 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HydroDome SCADA — Command &amp; Control</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
   
   * { margin:0; padding:0; box-sizing:border-box; }
-  
   :root {
-    --bg: #0a0e17;
-    --panel: #111827;
-    --panel-border: #1e2a3a;
-    --text: #e2e8f0;
-    --text-dim: #64748b;
-    --accent: #3b82f6;
-    --green: #22c55e;
-    --yellow: #eab308;
-    --red: #ef4444;
-    --orange: #f97316;
-    --cyan: #06b6d4;
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel2: #1c2128;
+    --border: #30363d;
+    --text: #e6edf3;
+    --dim: #7d8590;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --red: #f85149;
+    --orange: #db6d28;
+    --cyan: #39d2c0;
+    --blue: #58a6ff;
+    --pipe: #2ea043;
+    --pipe-active: #f85149;
   }
-  
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Inter', sans-serif;
-    overflow: hidden;
-    height: 100vh;
-  }
+  body { background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; overflow:hidden; height:100vh; }
   
   /* TOP BAR */
   .topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--panel);
-    border-bottom: 1px solid var(--panel-border);
-    padding: 8px 20px;
-    height: 48px;
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--panel); border-bottom:1px solid var(--border);
+    padding:0 20px; height:44px;
   }
-  .topbar-left { display: flex; align-items: center; gap: 16px; }
-  .topbar-logo {
-    font-family: 'JetBrains Mono', monospace;
-    font-weight: 700;
-    font-size: 15px;
-    color: var(--cyan);
-    letter-spacing: 1px;
+  .topbar-left { display:flex; align-items:center; gap:14px; }
+  .logo { font-family:'JetBrains Mono',monospace; font-weight:700; font-size:14px; color:var(--cyan); letter-spacing:1px; }
+  .logo span { color:var(--orange); }
+  .sep { width:1px; height:20px; background:var(--border); }
+  .topbar-label { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:2px; }
+  .topbar-right { display:flex; align-items:center; gap:16px; }
+  .status-pill {
+    display:flex; align-items:center; gap:5px;
+    font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--dim);
+    background:var(--panel2); border:1px solid var(--border); border-radius:12px; padding:3px 10px;
   }
-  .topbar-logo span { color: var(--orange); }
-  .topbar-divider { width:1px; height:24px; background: var(--panel-border); }
-  .topbar-label {
-    font-size: 12px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-  }
-  .topbar-right { display: flex; align-items: center; gap: 20px; }
-  .topbar-status {
-    display: flex; align-items: center; gap: 6px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-  }
-  .status-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    animation: pulse 2s infinite;
-  }
-  .status-dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
-  .status-dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
-  .status-dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); animation: pulse-fast 0.8s infinite; }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-  @keyframes pulse-fast { 0%,100%{opacity:1} 50%{opacity:0.3} }
-  .clock {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 13px;
-    color: var(--text-dim);
-  }
-
-  /* MAIN GRID */
-  .main {
-    display: grid;
-    grid-template-columns: 280px 1fr 300px;
-    grid-template-rows: 1fr;
-    height: calc(100vh - 48px);
-    gap: 0;
-  }
-
-  /* LEFT PANEL */
-  .left-panel {
-    background: var(--panel);
-    border-right: 1px solid var(--panel-border);
-    padding: 16px;
-    overflow-y: auto;
-  }
-  .section-title {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    color: var(--text-dim);
-    margin-bottom: 12px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--panel-border);
-  }
+  .dot { width:6px; height:6px; border-radius:50%; }
+  .dot-g { background:var(--green); box-shadow:0 0 4px var(--green); }
+  .dot-r { background:var(--red); box-shadow:0 0 4px var(--red); animation:blink 1s infinite; }
+  .dot-y { background:var(--yellow); box-shadow:0 0 4px var(--yellow); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .clock { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--dim); }
   
-  /* ZONE CARDS */
-  .zone-card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid var(--panel-border);
-    border-radius: 6px;
-    padding: 12px;
-    margin-bottom: 8px;
-    cursor: pointer;
-    transition: all 0.2s;
+  /* TAB BAR */
+  .tabbar {
+    display:flex; align-items:center; gap:0;
+    background:var(--panel); border-bottom:1px solid var(--border);
+    padding:0 20px; height:32px;
   }
-  .zone-card:hover { border-color: var(--accent); }
-  .zone-card.active { border-color: var(--red); background: rgba(239,68,68,0.05); }
-  .zone-card.standby { border-color: var(--green); }
-  .zone-card.deploying { border-color: var(--yellow); background: rgba(234,179,8,0.05); }
-  .zone-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-  .zone-name { font-weight: 600; font-size: 13px; }
-  .zone-badge {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    padding: 2px 8px;
-    border-radius: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-weight: 600;
+  .tab {
+    font-family:'JetBrains Mono',monospace; font-size:10px; text-transform:uppercase; letter-spacing:1.5px;
+    padding:6px 16px; color:var(--dim); cursor:pointer; border-bottom:2px solid transparent;
+    transition:all 0.2s;
   }
-  .badge-active { background: rgba(239,68,68,0.2); color: var(--red); }
-  .badge-standby { background: rgba(34,197,94,0.2); color: var(--green); }
-  .badge-deploying { background: rgba(234,179,8,0.2); color: var(--yellow); }
-  .zone-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-  .zone-stat {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    color: var(--text-dim);
-  }
-  .zone-stat strong { color: var(--text); }
-
-  /* CENTER MAP */
-  .center-panel {
-    position: relative;
-    background: var(--bg);
-    overflow: hidden;
-  }
-  .map-container {
-    width: 100%;
-    height: 100%;
-    position: relative;
-  }
-  .map-bg {
-    position: absolute;
-    inset: 0;
+  .tab:hover { color:var(--text); }
+  .tab.active { color:var(--cyan); border-bottom-color:var(--cyan); }
+  .tab.alert { color:var(--red); }
+  
+  /* MAIN */
+  .main { display:grid; grid-template-columns:1fr 280px; height:calc(100vh - 76px); }
+  
+  /* SCHEMATIC AREA */
+  .schematic {
+    position:relative; overflow:hidden;
     background:
-      radial-gradient(circle at 30% 40%, rgba(6,182,212,0.03) 0%, transparent 50%),
-      radial-gradient(circle at 70% 60%, rgba(239,68,68,0.05) 0%, transparent 40%);
+      radial-gradient(circle at 20% 30%, rgba(57,210,192,0.02) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(248,81,73,0.03) 0%, transparent 40%);
   }
-  /* Grid lines */
-  .map-grid {
-    position: absolute;
-    inset: 0;
+  .schematic-grid {
+    position:absolute; inset:0;
     background-image:
-      linear-gradient(rgba(30,42,58,0.4) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(30,42,58,0.4) 1px, transparent 1px);
-    background-size: 60px 60px;
+      linear-gradient(rgba(48,54,61,0.3) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(48,54,61,0.3) 1px, transparent 1px);
+    background-size: 40px 40px;
   }
   
-  /* Tower nodes on map */
-  .tower-node {
-    position: absolute;
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.3s;
-    z-index: 2;
-  }
-  .tower-node::after {
-    content: '';
-    position: absolute;
-    inset: -4px;
-    border-radius: 50%;
-    border: 1px solid;
-    opacity: 0.3;
-  }
-  .tower-green { background: rgba(34,197,94,0.3); border: 2px solid var(--green); color: var(--green); }
-  .tower-green::after { border-color: var(--green); }
-  .tower-yellow { background: rgba(234,179,8,0.3); border: 2px solid var(--yellow); color: var(--yellow); }
-  .tower-yellow::after { border-color: var(--yellow); }
-  .tower-red { background: rgba(239,68,68,0.3); border: 2px solid var(--red); color: var(--red); }
-  .tower-red::after { border-color: var(--red); animation: pulse-ring 1.5s infinite; }
-  @keyframes pulse-ring { 0%{transform:scale(1);opacity:0.3} 100%{transform:scale(1.8);opacity:0} }
+  /* SVG SCHEMATIC */
+  .scada-svg { width:100%; height:100%; }
   
-  /* Spray radius visualization */
-  .spray-radius {
-    position: absolute;
-    border-radius: 50%;
-    border: 1px dashed;
-    opacity: 0.15;
-    pointer-events: none;
-  }
-  .spray-green { border-color: var(--green); background: rgba(34,197,94,0.03); }
-  .spray-red { border-color: var(--red); background: rgba(239,68,68,0.06); }
-  .spray-yellow { border-color: var(--yellow); background: rgba(234,179,8,0.04); }
+  /* PIPE STYLES */
+  .pipe { fill:none; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
+  .pipe-main { stroke:#2ea043; }
+  .pipe-active { stroke:var(--red); }
+  .pipe-standby { stroke:#2ea043; opacity:0.4; }
+  .pipe-deploying { stroke:var(--yellow); }
+  .pipe-flow { fill:none; stroke-width:3; stroke-dasharray:8 6; }
+  .pipe-flow-active { stroke:rgba(248,81,73,0.6); animation:flow 1s linear infinite; }
+  .pipe-flow-standby { stroke:rgba(46,160,67,0.3); animation:flow 3s linear infinite; }
+  @keyframes flow { 0%{stroke-dashoffset:0} 100%{stroke-dashoffset:-14} }
   
-  /* Zone overlays */
-  .zone-overlay {
-    position: absolute;
-    border: 1px dashed;
-    border-radius: 8px;
-    opacity: 0.2;
-    pointer-events: none;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    padding: 4px 8px;
-  }
+  /* COMPONENT STYLES */
+  .valve-body { fill:var(--panel2); stroke:var(--border); stroke-width:1.5; }
+  .valve-open { fill:var(--panel2); stroke:var(--green); stroke-width:1.5; }
+  .valve-closed { fill:var(--panel2); stroke:var(--red); stroke-width:1.5; }
+  .pump-body { fill:var(--panel2); stroke:var(--border); stroke-width:1.5; }
+  .pump-active { fill:rgba(248,81,73,0.1); stroke:var(--red); stroke-width:2; }
+  .pump-standby { fill:rgba(46,160,67,0.05); stroke:var(--green); stroke-width:1.5; }
+  .tank-body { fill:rgba(57,210,192,0.05); stroke:var(--cyan); stroke-width:1.5; }
+  .tank-water { fill:rgba(57,210,192,0.2); }
+  .tank-water-low { fill:rgba(248,81,73,0.15); }
+  .tower-icon { fill:var(--panel2); stroke-width:1.5; }
+  .tower-active { stroke:var(--red); filter:drop-shadow(0 0 4px rgba(248,81,73,0.4)); }
+  .tower-standby { stroke:var(--green); }
+  .tower-deploying { stroke:var(--yellow); }
   
-  /* Buildings on map */
-  .building {
-    position: absolute;
-    background: rgba(100,116,139,0.2);
-    border: 1px solid rgba(100,116,139,0.3);
-    border-radius: 2px;
-    z-index: 1;
-  }
-  .building-label {
-    position: absolute;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 8px;
-    color: var(--text-dim);
-    white-space: nowrap;
-    top: -14px;
-    left: 0;
-  }
-  .building.fire {
-    border-color: var(--red);
-    background: rgba(239,68,68,0.15);
-    animation: fire-glow 1s infinite alternate;
-  }
-  @keyframes fire-glow { 0%{box-shadow:0 0 8px rgba(239,68,68,0.3)} 100%{box-shadow:0 0 20px rgba(239,68,68,0.6)} }
+  .label { font-family:'JetBrains Mono',monospace; fill:var(--dim); font-size:9px; letter-spacing:1px; }
+  .label-lg { font-family:'JetBrains Mono',monospace; fill:var(--text); font-size:11px; font-weight:600; }
+  .label-val { font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700; }
+  .label-unit { font-family:'JetBrains Mono',monospace; font-size:9px; fill:var(--dim); }
+  .label-status { font-family:'JetBrains Mono',monospace; font-size:8px; text-transform:uppercase; letter-spacing:1px; }
   
-  /* Connection lines (LoRa mesh) */
-  .mesh-lines {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-  }
-  .mesh-lines svg { width:100%; height:100%; }
-  .mesh-line { stroke: rgba(6,182,212,0.12); stroke-width: 1; stroke-dasharray: 4 4; }
-  .mesh-line.active { stroke: rgba(239,68,68,0.25); stroke-width: 1.5; stroke-dasharray: none; }
+  /* Mini chart in SVG */
+  .chart-line { fill:none; stroke:var(--cyan); stroke-width:1.5; }
+  .chart-fill { fill:url(#chartGrad); }
+  .chart-grid-line { stroke:rgba(48,54,61,0.5); stroke-width:0.5; }
   
-  /* Map legend */
-  .map-legend {
-    position: absolute;
-    bottom: 16px;
-    left: 16px;
-    background: rgba(17,24,39,0.9);
-    border: 1px solid var(--panel-border);
-    border-radius: 6px;
-    padding: 10px 14px;
-    z-index: 5;
-  }
-  .legend-title {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    color: var(--text-dim);
-    margin-bottom: 8px;
-  }
-  .legend-item { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; font-size: 11px; }
-  .legend-dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid; }
+  /* Spray animation */
+  .spray-arc { fill:none; stroke:rgba(57,210,192,0.3); stroke-width:2; stroke-dasharray:3 3; }
+  .spray-arc-active { stroke:rgba(248,81,73,0.4); animation:spray 0.5s ease-in-out infinite alternate; }
+  @keyframes spray { 0%{opacity:0.2;stroke-width:1} 100%{opacity:0.6;stroke-width:3} }
   
-  /* Map header overlay */
-  .map-header {
-    position: absolute;
-    top: 16px;
-    left: 16px;
-    z-index: 5;
-  }
-  .map-title {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    color: var(--text-dim);
-    text-transform: uppercase;
-    letter-spacing: 2px;
-  }
-  .map-subtitle { font-size: 18px; font-weight: 700; margin-top: 2px; }
-  
-  /* Alert banner */
-  .alert-banner {
-    position: absolute;
-    top: 16px;
-    right: 16px;
-    background: rgba(239,68,68,0.1);
-    border: 1px solid var(--red);
-    border-radius: 6px;
-    padding: 8px 14px;
-    z-index: 5;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    animation: alert-flash 2s infinite;
-  }
-  @keyframes alert-flash { 0%,100%{opacity:1} 50%{opacity:0.7} }
-  .alert-icon { font-size: 16px; }
-  .alert-text {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    color: var(--red);
-    font-weight: 600;
-  }
-  .alert-sub { font-size: 10px; color: var(--text-dim); }
-
   /* RIGHT PANEL */
   .right-panel {
-    background: var(--panel);
-    border-left: 1px solid var(--panel-border);
-    padding: 16px;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+    background:var(--panel); border-left:1px solid var(--border);
+    padding:14px; overflow-y:auto; display:flex; flex-direction:column; gap:12px;
   }
+  .section-title {
+    font-family:'JetBrains Mono',monospace; font-size:9px; text-transform:uppercase;
+    letter-spacing:2px; color:var(--dim); padding-bottom:6px; border-bottom:1px solid var(--border);
+  }
+  .gauge-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .gauge {
+    background:var(--panel2); border:1px solid var(--border); border-radius:6px;
+    padding:10px; text-align:center;
+  }
+  .gauge-label { font-family:'JetBrains Mono',monospace; font-size:8px; text-transform:uppercase; letter-spacing:1.5px; color:var(--dim); margin-bottom:4px; }
+  .gauge-val { font-family:'JetBrains Mono',monospace; font-size:22px; font-weight:700; }
+  .gauge-unit { font-size:10px; color:var(--dim); font-weight:400; }
+  .gauge-bar { width:100%; height:3px; background:rgba(255,255,255,0.05); border-radius:2px; margin-top:6px; overflow:hidden; }
+  .gauge-fill { height:100%; border-radius:2px; }
   
-  /* GAUGE */
-  .gauge-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .gauge-card {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid var(--panel-border);
-    border-radius: 6px;
-    padding: 12px;
-    text-align: center;
-  }
-  .gauge-label {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    color: var(--text-dim);
-    margin-bottom: 6px;
-  }
-  .gauge-value {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 24px;
-    font-weight: 700;
-  }
-  .gauge-unit {
-    font-size: 11px;
-    color: var(--text-dim);
-    font-weight: 400;
-  }
-  .gauge-bar {
-    width: 100%;
-    height: 4px;
-    background: rgba(255,255,255,0.05);
-    border-radius: 2px;
-    margin-top: 8px;
-    overflow: hidden;
-  }
-  .gauge-fill { height: 100%; border-radius: 2px; transition: width 1s; }
-  
-  /* WATER LEVELS */
-  .water-tank {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid var(--panel-border);
-    border-radius: 6px;
-    padding: 12px;
-    margin-bottom: 6px;
-  }
-  .tank-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-  .tank-name { font-size: 12px; font-weight: 600; }
-  .tank-pct {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    font-weight: 700;
-  }
-  .tank-bar {
-    width: 100%;
-    height: 20px;
-    background: rgba(255,255,255,0.05);
-    border-radius: 3px;
-    overflow: hidden;
-    position: relative;
-  }
-  .tank-fill {
-    height: 100%;
-    border-radius: 3px;
-    transition: width 2s;
-    position: relative;
-  }
+  .tank-card { background:var(--panel2); border:1px solid var(--border); border-radius:6px; padding:10px; margin-bottom:4px; }
+  .tank-hdr { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+  .tank-name { font-size:11px; font-weight:600; }
+  .tank-pct { font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; }
+  .tank-bar { width:100%; height:16px; background:rgba(255,255,255,0.04); border-radius:3px; overflow:hidden; }
+  .tank-fill { height:100%; border-radius:3px; position:relative; }
   .tank-fill::after {
-    content: '';
-    position: absolute;
-    top: 0; right: 0; bottom: 0; left: 0;
-    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
-    animation: shimmer 3s infinite;
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,0.08),transparent);
+    animation:shimmer 3s infinite;
   }
   @keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
-  .tank-detail {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 6px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    color: var(--text-dim);
-  }
-  
-  /* PRESSURE CHART */
-  .chart-card {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid var(--panel-border);
-    border-radius: 6px;
-    padding: 12px;
-  }
-  .chart-canvas { width: 100%; height: 80px; }
-  
-  /* EVENT LOG */
-  .event-log {
-    flex: 1;
-    min-height: 0;
-  }
-  .log-entry {
-    display: flex;
-    gap: 8px;
-    padding: 6px 0;
-    border-bottom: 1px solid rgba(255,255,255,0.03);
-    font-size: 11px;
-  }
-  .log-time {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    color: var(--text-dim);
-    white-space: nowrap;
-    min-width: 50px;
-  }
-  .log-icon { font-size: 12px; }
-  .log-msg { color: var(--text); line-height: 1.4; }
-  .log-msg.critical { color: var(--red); }
-  .log-msg.warning { color: var(--yellow); }
+  .tank-detail { display:flex; justify-content:space-between; margin-top:4px; font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--dim); }
 
-  /* BOTTOM STATUS BAR */
-  .statusbar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 28px;
-    background: var(--panel);
-    border-top: 1px solid var(--panel-border);
-    display: flex;
-    align-items: center;
-    padding: 0 16px;
-    gap: 24px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    color: var(--text-dim);
-    z-index: 100;
+  .log-entry { display:flex; gap:6px; padding:4px 0; border-bottom:1px solid rgba(255,255,255,0.03); font-size:10px; }
+  .log-time { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--dim); min-width:36px; }
+  .log-msg { line-height:1.3; }
+  .log-crit { color:var(--red); }
+  .log-warn { color:var(--yellow); }
+  
+  /* BOTTOM BAR */
+  .bottombar {
+    position:fixed; bottom:0; left:0; right:0; height:24px;
+    background:var(--panel); border-top:1px solid var(--border);
+    display:flex; align-items:center; padding:0 16px; gap:20px;
+    font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--dim); z-index:100;
   }
-  .statusbar-item { display: flex; align-items: center; gap: 6px; }
-  .statusbar-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .bb-item { display:flex; align-items:center; gap:4px; }
 </style>
 </head>
 <body>
 
-<!-- TOP BAR -->
 <div class="topbar">
   <div class="topbar-left">
-    <div class="topbar-logo">HYDRO<span>DOME</span></div>
-    <div class="topbar-divider"></div>
+    <div class="logo">HYDRO<span>DOME</span></div>
+    <div class="sep"></div>
     <div class="topbar-label">SCADA Command &amp; Control</div>
-    <div class="topbar-divider"></div>
-    <div class="topbar-status">
-      <div class="status-dot red"></div>
-      <span style="color:var(--red);font-weight:600;">THREAT ACTIVE — ZONE C</span>
-    </div>
+    <div class="sep"></div>
+    <div class="status-pill"><div class="dot dot-r"></div><span style="color:var(--red);font-weight:600">THREAT ACTIVE</span></div>
   </div>
   <div class="topbar-right">
-    <div class="topbar-status">
-      <div class="status-dot green"></div>
-      <span>LoRa Mesh: 40/40 nodes</span>
-    </div>
-    <div class="topbar-status">
-      <div class="status-dot green"></div>
-      <span>SCADA Link: OK</span>
-    </div>
-    <div class="clock" id="clock">2026-03-06 15:42:18 PST</div>
+    <div class="status-pill"><div class="dot dot-g"></div>LoRa Mesh 40/40</div>
+    <div class="status-pill"><div class="dot dot-g"></div>SCADA Link OK</div>
+    <div class="clock" id="clock"></div>
   </div>
 </div>
 
-<!-- MAIN LAYOUT -->
+<div class="tabbar">
+  <div class="tab active">Main</div>
+  <div class="tab">Water Supply</div>
+  <div class="tab">Pump Systems</div>
+  <div class="tab">Tower Network</div>
+  <div class="tab alert">⚠ Alarms</div>
+  <div class="tab">Settings</div>
+</div>
+
 <div class="main">
+  <!-- SCHEMATIC -->
+  <div class="schematic">
+    <div class="schematic-grid"></div>
+    <svg class="scada-svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="rgba(57,210,192,0.15)"/>
+          <stop offset="100%" stop-color="rgba(57,210,192,0)"/>
+        </linearGradient>
+        <linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="rgba(57,210,192,0.3)"/>
+          <stop offset="100%" stop-color="rgba(57,210,192,0.1)"/>
+        </linearGradient>
+        <linearGradient id="waterLow" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="rgba(210,153,34,0.3)"/>
+          <stop offset="100%" stop-color="rgba(210,153,34,0.1)"/>
+        </linearGradient>
+        <marker id="arrowG" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+          <path d="M0,0 L6,2 L0,4" fill="rgba(46,160,67,0.5)"/>
+        </marker>
+        <marker id="arrowR" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
+          <path d="M0,0 L6,2 L0,4" fill="rgba(248,81,73,0.5)"/>
+        </marker>
+      </defs>
+      
+      <!-- ===== WATER SUPPLY (LEFT) ===== -->
+      <text x="60" y="40" class="label" style="font-size:10px;letter-spacing:2px">MUNICIPAL WATER MAIN</text>
+      
+      <!-- Water main pipe (horizontal) -->
+      <line x1="40" y1="70" x2="40" y2="700" class="pipe pipe-main" stroke-width="5"/>
+      <line x1="40" y1="70" x2="40" y2="700" class="pipe-flow pipe-flow-standby" stroke-width="5"/>
+      <text x="20" y="60" class="label" style="font-size:8px">12" MAIN</text>
+      
+      <!-- Pressure sensor on main -->
+      <rect x="20" y="90" width="40" height="24" rx="3" class="valve-body"/>
+      <text x="40" y="104" text-anchor="middle" class="label-val" style="font-size:10px;fill:var(--cyan)">52</text>
+      <text x="40" y="124" text-anchor="middle" class="label" style="font-size:7px">PSI (SCADA)</text>
+      
+      <!-- Temperature -->
+      <rect x="20" y="140" width="40" height="24" rx="3" class="valve-body"/>
+      <text x="40" y="154" text-anchor="middle" class="label-val" style="font-size:10px;fill:var(--orange)">8.2</text>
+      <text x="40" y="174" text-anchor="middle" class="label" style="font-size:7px">°C WATER</text>
+      
+      <!-- ===== ZONE C - ACTIVE (TOP) ===== -->
+      <text x="180" y="40" class="label-lg" style="fill:var(--red)">ZONE C — INDUSTRIAL EAST</text>
+      <text x="180" y="54" class="label-status" style="fill:var(--red)">● ACTIVE — SPRAYING</text>
+      
+      <!-- Branch from main to Zone C -->
+      <path d="M40,100 L100,100" class="pipe pipe-active"/>
+      <path d="M40,100 L100,100" class="pipe-flow pipe-flow-active"/>
+      
+      <!-- Backflow Preventer -->
+      <rect x="100" y="86" width="50" height="28" rx="4" class="valve-open" style="stroke:var(--red)"/>
+      <text x="125" y="100" text-anchor="middle" class="label" style="font-size:7px;fill:var(--red)">BACKFLOW</text>
+      <text x="125" y="110" text-anchor="middle" class="label" style="font-size:7px;fill:var(--red)">PREV.</text>
+      <text x="125" y="125" text-anchor="middle" class="label-status" style="fill:var(--green)">OPEN</text>
+      
+      <!-- Pipe to smart valve -->
+      <path d="M150,100 L200,100" class="pipe pipe-active"/>
+      <path d="M150,100 L200,100" class="pipe-flow pipe-flow-active"/>
+      
+      <!-- Smart Control Valve -->
+      <polygon points="200,85 225,100 200,115" class="valve-open" style="stroke:var(--red);fill:rgba(248,81,73,0.1)"/>
+      <text x="212" y="75" text-anchor="middle" class="label" style="font-size:7px">SMART CTRL</text>
+      <text x="212" y="130" text-anchor="middle" class="label-status" style="fill:var(--green)">OPEN</text>
+      
+      <!-- Pipe to cistern -->
+      <path d="M225,100 L280,100 L280,140" class="pipe pipe-active"/>
+      <path d="M225,100 L280,100 L280,140" class="pipe-flow pipe-flow-active"/>
+      
+      <!-- CISTERN C -->
+      <rect x="240" y="140" width="80" height="70" rx="4" class="tank-body" style="stroke:var(--yellow)"/>
+      <rect x="242" y="167" width="76" height="41" rx="2" fill="url(#waterLow)"/>
+      <text x="280" y="160" text-anchor="middle" class="label" style="font-size:7px">CISTERN C-1</text>
+      <text x="280" y="178" text-anchor="middle" class="label-val" style="fill:var(--yellow)">62%</text>
+      <text x="280" y="192" text-anchor="middle" class="label-unit">4,960 / 8,000 gal</text>
+      <!-- Ultra water level meter -->
+      <rect x="324" y="148" width="6" height="54" rx="1" fill="var(--panel2)" stroke="var(--border)" stroke-width="1"/>
+      <rect x="325" y="170" width="4" height="32" rx="1" fill="var(--yellow)" opacity="0.5"/>
+      <text x="340" y="180" class="label" style="font-size:6px">UWL</text>
+      
+      <!-- Anti-vortex plate indicator -->
+      <line x1="250" y1="202" x2="310" y2="202" stroke="var(--cyan)" stroke-width="1" stroke-dasharray="3 2"/>
+      <text x="280" y="218" text-anchor="middle" class="label" style="font-size:6px">ANTI-VORTEX PLATE</text>
+      
+      <!-- Pipe from cistern to pump -->
+      <path d="M280,210 L280,260 L360,260" class="pipe pipe-active"/>
+      <path d="M280,210 L280,260 L360,260" class="pipe-flow pipe-flow-active" marker-end="url(#arrowR)"/>
+      
+      <!-- PUMP C -->
+      <circle cx="395" cy="260" r="28" class="pump-active"/>
+      <circle cx="395" cy="260" r="18" fill="none" stroke="var(--red)" stroke-width="1.5"/>
+      <!-- Pump impeller animation -->
+      <g transform="translate(395,260)">
+        <line x1="-12" y1="0" x2="12" y2="0" stroke="var(--red)" stroke-width="2">
+          <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="0.5s" repeatCount="indefinite"/>
+        </line>
+        <line x1="0" y1="-12" x2="0" y2="12" stroke="var(--red)" stroke-width="2">
+          <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="0.5s" repeatCount="indefinite"/>
+        </line>
+      </g>
+      <text x="395" y="300" text-anchor="middle" class="label" style="font-size:7px">HIGH-VOL PUMP</text>
+      <text x="395" y="312" text-anchor="middle" class="label-val" style="font-size:10px;fill:var(--red)">2,840 RPM</text>
+      
+      <!-- VFD box -->
+      <rect x="440" y="240" width="55" height="40" rx="4" class="valve-body" style="stroke:var(--red)"/>
+      <text x="467" y="256" text-anchor="middle" class="label" style="font-size:7px;fill:var(--red)">VFD</text>
+      <text x="467" y="268" text-anchor="middle" class="label-val" style="font-size:9px;fill:var(--red)">78%</text>
+      <text x="467" y="290" text-anchor="middle" class="label" style="font-size:6px">VARIABLE FREQ</text>
+      
+      <!-- Generator box -->
+      <rect x="440" y="300" width="55" height="36" rx="4" class="valve-body" style="stroke:var(--orange)"/>
+      <text x="467" y="314" text-anchor="middle" class="label" style="font-size:7px;fill:var(--orange)">GEN 20kW</text>
+      <text x="467" y="328" text-anchor="middle" class="label-val" style="font-size:9px;fill:var(--orange)">14.2 kW</text>
+      
+      <!-- Propane indicator -->
+      <rect x="500" y="308" width="40" height="20" rx="3" class="valve-body"/>
+      <text x="520" y="320" text-anchor="middle" class="label" style="font-size:6px">LPG 85%</text>
+      
+      <!-- Pipe from pump to towers -->
+      <path d="M423,260 L440,260" class="pipe pipe-active"/>
+      <path d="M395,232 L395,80 L540,80" class="pipe pipe-active" stroke-width="2.5"/>
+      <path d="M395,232 L395,80 L540,80" class="pipe-flow pipe-flow-active" stroke-width="2.5"/>
+      
+      <!-- TOWERS C (5 towers) -->
+      <g id="towerC1" transform="translate(560,50)">
+        <rect x="-8" y="0" width="16" height="50" rx="2" class="tower-icon tower-active"/>
+        <rect x="-12" y="0" width="24" height="6" rx="1" fill="var(--red)" opacity="0.8"/>
+        <!-- Spray arcs -->
+        <path d="M-20,-10 Q0,-30 20,-10" class="spray-arc spray-arc-active"/>
+        <path d="M-30,-5 Q0,-35 30,-5" class="spray-arc spray-arc-active" style="animation-delay:0.2s"/>
+        <text x="0" y="65" text-anchor="middle" class="label" style="font-size:7px;fill:var(--red)">C-01</text>
+        <circle cx="0" cy="-2" r="3" fill="var(--red)"><animate attributeName="opacity" values="1;0.3;1" dur="0.8s" repeatCount="indefinite"/></circle>
+      </g>
+      
+      <path d="M540,80 L560,80 L560,50" class="pipe pipe-active" stroke-width="2"/>
+      
+      <g transform="translate(640,50)">
+        <rect x="-8" y="0" width="16" height="50" rx="2" class="tower-icon tower-active"/>
+        <rect x="-12" y="0" width="24" height="6" rx="1" fill="var(--red)" opacity="0.8"/>
+        <path d="M-20,-10 Q0,-30 20,-10" class="spray-arc spray-arc-active"/>
+        <path d="M-30,-5 Q0,-35 30,-5" class="spray-arc spray-arc-active" style="animation-delay:0.3s"/>
+        <text x="0" y="65" text-anchor="middle" class="label" style="font-size:7px;fill:var(--red)">C-02</text>
+        <circle cx="0" cy="-2" r="3" fill="var(--red)"><animate attributeName="opacity" values="1;0.3;1" dur="0.8s" repeatCount="indefinite"/></circle>
+      </g>
+      <path d="M580,80 L640,80 L640,50" class="pipe pipe-active" stroke-width="2"/>
+      
+      <g transform="translate(720,50)">
+        <rect x="-8" y="0" width="16" height="50" rx="2" class="tower-icon tower-active"/>
+        <rect x="-12" y="0" width="24" height="6" rx="1" fill="var(--red)" opacity="0.8"/>
+        <path d="M-20,-10 Q0,-30 20,-10" class="spray-arc spray-arc-active"/>
+        <path d="M-30,-5 Q0,-35 30,-5" class="spray-arc spray-arc-active" style="animation-delay:0.1s"/>
+        <text x="0" y="65" text-anchor="middle" class="label" style="font-size:7px;fill:var(--red)">C-03</text>
+        <circle cx="0" cy="-2" r="3" fill="var(--red)"><animate attributeName="opacity" values="1;0.3;1" dur="0.8s" repeatCount="indefinite"/></circle>
+      </g>
+      <path d="M660,80 L720,80 L720,50" class="pipe pipe-active" stroke-width="2"/>
+
+      <g transform="translate(800,50)">
+        <rect x="-8" y="0" width="16" height="50" rx="2" class="tower-icon tower-active"/>
+        <rect x="-12" y="0" width="24" height="6" rx="1" fill="var(--red)" opacity="0.8"/>
+        <path d="M-20,-10 Q0,-30 20,-10" class="spray-arc spray-arc-active"/>
+        <path d="M-30,-5 Q0,-35 30,-5" class="spray-arc spray-arc-active" style="animation-delay:0.4s"/>
+        <text x="0" y="65" text-anchor="middle" class="label" style="font-size:7px;fill:var(--red)">C-04</text>
+        <circle cx="0" cy="-2" r="3" fill="var(--red)"><animate attributeName="opacity" values="1;0.3;1" dur="0.8s" repeatCount="indefinite"/></circle>
+      </g>
+      <path d="M740,80 L800,80 L800,50" class="pipe pipe-active" stroke-width="2"/>
+
+      <g transform="translate(880,50)">
+        <rect x="-8" y="0" width="16" height="50" rx="2" class="tower-icon tower-active"/>
+        <rect x="-12" y="0" width="24" height="6" rx="1" fill="var(--red)" opacity="0.8"/>
+        <path d="M-20,-10 Q0,-30 20,-10" class="spray-arc spray-arc-active"/>
+        <path d="M-30,-5 Q0,-35 30,-5" class="spray-arc spray-arc-active" style="animation-delay:0.5s"/>
+        <text x="0" y="65" text-anchor="middle" class="label" style="font-size:7px;fill:var(--red)">C-05</text>
+        <circle cx="0" cy="-2" r="3" fill="var(--red)"><animate attributeName="opacity" values="1;0.3;1" dur="0.8s" repeatCount="indefinite"/></circle>
+      </g>
+      <path d="M820,80 L880,80 L880,50" class="pipe pipe-active" stroke-width="2"/>
+      
+      <!-- Flow rate readout on Zone C header -->
+      <rect x="560" y="125" width="100" height="30" rx="4" class="valve-body" style="stroke:var(--red)"/>
+      <text x="610" y="138" text-anchor="middle" class="label" style="font-size:7px">FLOW RATE</text>
+      <text x="610" y="150" text-anchor="middle" class="label-val" style="fill:var(--red);font-size:11px">820 GPM</text>
+      
+      <!-- Pressure readout -->
+      <rect x="680" y="125" width="80" height="30" rx="4" class="valve-body" style="stroke:var(--cyan)"/>
+      <text x="720" y="138" text-anchor="middle" class="label" style="font-size:7px">PRESSURE</text>
+      <text x="720" y="150" text-anchor="middle" class="label-val" style="fill:var(--cyan);font-size:11px">48 PSI</text>
+      
+      
+      <!-- ===== ZONE A - STANDBY (MIDDLE) ===== -->
+      <text x="180" y="380" class="label-lg" style="fill:var(--green)">ZONE A — HOSPITAL / SHELTER</text>
+      <text x="180" y="394" class="label-status" style="fill:var(--green)">● STANDBY — READY</text>
+      
+      <!-- Branch from main -->
+      <path d="M40,400 L100,400" class="pipe pipe-standby"/>
+      <path d="M40,400 L100,400" class="pipe-flow pipe-flow-standby"/>
+      
+      <!-- Backflow -->
+      <rect x="100" y="386" width="50" height="28" rx="4" class="valve-open"/>
+      <text x="125" y="402" text-anchor="middle" class="label" style="font-size:7px;fill:var(--green)">BACKFLOW</text>
+      <text x="125" y="422" text-anchor="middle" class="label-status" style="fill:var(--dim)">CLOSED</text>
+      
+      <path d="M150,400 L200,400" class="pipe pipe-standby"/>
+      
+      <!-- Smart valve -->
+      <polygon points="200,385 225,400 200,415" class="valve-closed"/>
+      <text x="212" y="375" text-anchor="middle" class="label" style="font-size:7px">SMART CTRL</text>
+      <text x="212" y="430" text-anchor="middle" class="label-status" style="fill:var(--red);font-size:7px">CLOSED</text>
+      
+      <path d="M225,400 L280,400 L280,440" class="pipe pipe-standby"/>
+      
+      <!-- CISTERN A -->
+      <rect x="240" y="440" width="80" height="70" rx="4" class="tank-body"/>
+      <rect x="242" y="446" width="76" height="62" rx="2" fill="url(#waterGrad)"/>
+      <text x="280" y="462" text-anchor="middle" class="label" style="font-size:7px">CISTERN A-1</text>
+      <text x="280" y="480" text-anchor="middle" class="label-val" style="fill:var(--green)">98%</text>
+      <text x="280" y="494" text-anchor="middle" class="label-unit">7,840 / 8,000 gal</text>
+      <rect x="324" y="448" width="6" height="54" rx="1" fill="var(--panel2)" stroke="var(--border)" stroke-width="1"/>
+      <rect x="325" y="450" width="4" height="50" rx="1" fill="var(--green)" opacity="0.4"/>
+      
+      <!-- Pump A (standby) -->
+      <path d="M280,510 L280,550 L360,550" class="pipe pipe-standby"/>
+      <circle cx="395" cy="550" r="28" class="pump-standby"/>
+      <circle cx="395" cy="550" r="18" fill="none" stroke="var(--green)" stroke-width="1" opacity="0.4"/>
+      <text x="395" y="554" text-anchor="middle" class="label" style="font-size:8px;fill:var(--green)">OFF</text>
+      <text x="395" y="590" text-anchor="middle" class="label" style="font-size:7px">PUMP A</text>
+      
+      <!-- Towers A (standby, 5 towers condensed) -->
+      <path d="M395,522 L395,430 L540,430" class="pipe pipe-standby"/>
+      
+      <g transform="translate(560,410)">
+        <rect x="-6" y="0" width="12" height="36" rx="2" class="tower-icon tower-standby" opacity="0.5"/>
+        <text x="0" y="50" text-anchor="middle" class="label" style="font-size:6px;fill:var(--green)">A-01</text>
+      </g>
+      <g transform="translate(610,410)">
+        <rect x="-6" y="0" width="12" height="36" rx="2" class="tower-icon tower-standby" opacity="0.5"/>
+        <text x="0" y="50" text-anchor="middle" class="label" style="font-size:6px;fill:var(--green)">A-02</text>
+      </g>
+      <g transform="translate(660,410)">
+        <rect x="-6" y="0" width="12" height="36" rx="2" class="tower-icon tower-standby" opacity="0.5"/>
+        <text x="0" y="50" text-anchor="middle" class="label" style="font-size:6px;fill:var(--green)">A-03</text>
+      </g>
+      <g transform="translate(710,410)">
+        <rect x="-6" y="0" width="12" height="36" rx="2" class="tower-icon tower-standby" opacity="0.5"/>
+        <text x="0" y="50" text-anchor="middle" class="label" style="font-size:6px;fill:var(--green)">A-04</text>
+      </g>
+      <g transform="translate(760,410)">
+        <rect x="-6" y="0" width="12" height="36" rx="2" class="tower-icon tower-standby" opacity="0.5"/>
+        <text x="0" y="50" text-anchor="middle" class="label" style="font-size:6px;fill:var(--green)">A-05</text>
+      </g>
+      <path d="M540,430 L780,430" class="pipe pipe-standby" stroke-width="2"/>
+      <!-- Branch lines down to each tower -->
+      <line x1="560" y1="430" x2="560" y2="410" class="pipe pipe-standby" stroke-width="1.5"/>
+      <line x1="610" y1="430" x2="610" y2="410" class="pipe pipe-standby" stroke-width="1.5"/>
+      <line x1="660" y1="430" x2="660" y2="410" class="pipe pipe-standby" stroke-width="1.5"/>
+      <line x1="710" y1="430" x2="710" y2="410" class="pipe pipe-standby" stroke-width="1.5"/>
+      <line x1="760" y1="430" x2="760" y2="410" class="pipe pipe-standby" stroke-width="1.5"/>
+      
+
+      <!-- ===== ZONE B - DEPLOYING (BOTTOM) ===== -->
+      <text x="180" y="630" class="label-lg" style="fill:var(--yellow)">ZONE B — SPRUCE CREEK VILLAGE</text>
+      <text x="180" y="644" class="label-status" style="fill:var(--yellow)">● DEPLOYING — PRECAUTIONARY</text>
+      
+      <!-- Branch from main -->
+      <path d="M40,650 L100,650" class="pipe pipe-deploying"/>
+      <path d="M40,650 L100,650" class="pipe-flow" style="stroke:rgba(210,153,34,0.4);stroke-dasharray:8 6;animation:flow 2s linear infinite"/>
+      
+      <!-- Backflow -->
+      <rect x="100" y="636" width="50" height="28" rx="4" class="valve-open" style="stroke:var(--yellow)"/>
+      <text x="125" y="652" text-anchor="middle" class="label" style="font-size:7px;fill:var(--yellow)">BACKFLOW</text>
+      <text x="125" y="672" text-anchor="middle" class="label-status" style="fill:var(--green)">OPEN</text>
+      
+      <path d="M150,650 L200,650" class="pipe pipe-deploying"/>
+      
+      <!-- Smart valve opening -->
+      <polygon points="200,635 225,650 200,665" class="valve-open" style="stroke:var(--yellow);fill:rgba(210,153,34,0.1)"/>
+      <text x="212" y="625" text-anchor="middle" class="label" style="font-size:7px">SMART CTRL</text>
+      <text x="212" y="680" text-anchor="middle" class="label-status" style="fill:var(--yellow)">OPENING</text>
+      
+      <path d="M225,650 L280,650 L280,690" class="pipe pipe-deploying"/>
+      
+      <!-- CISTERN B -->
+      <rect x="240" y="690" width="80" height="60" rx="4" class="tank-body"/>
+      <rect x="242" y="694" width="76" height="54" rx="2" fill="url(#waterGrad)"/>
+      <text x="280" y="710" text-anchor="middle" class="label" style="font-size:7px">CISTERN B-1</text>
+      <text x="280" y="726" text-anchor="middle" class="label-val" style="fill:var(--green)">94%</text>
+      <text x="280" y="740" text-anchor="middle" class="label-unit">7,520 / 8,000 gal</text>
+      
+      <!-- Pump B (starting) -->
+      <path d="M280,750 L280,770 L360,770" class="pipe pipe-deploying"/>
+      <circle cx="395" cy="770" r="22" class="pump-body" style="stroke:var(--yellow)"/>
+      <text x="395" y="774" text-anchor="middle" class="label" style="font-size:7px;fill:var(--yellow)">START</text>
+      
+      <!-- Towers B (deploying) -->
+      <path d="M395,748 L395,680 L540,680" class="pipe pipe-deploying" stroke-width="2"/>
+      <path d="M540,680 L700,680" class="pipe pipe-deploying" stroke-width="2"/>
+      
+      <g transform="translate(560,660)">
+        <rect x="-6" y="8" width="12" height="28" rx="2" class="tower-icon tower-deploying" opacity="0.7"/>
+        <text x="0" y="50" text-anchor="middle" class="label" style="font-size:6px;fill:var(--yellow)">B-01 ↑</text>
+      </g>
+      <g transform="translate(620,660)">
+        <rect x="-6" y="8" width="12" height="28" rx="2" class="tower-icon tower-deploying" opacity="0.7"/>
+        <text x="0" y="50" text-anchor="middle" class="label" style="font-size:6px;fill:var(--yellow)">B-02 ↑</text>
+      </g>
+      <g transform="translate(680,660)">
+        <rect x="-6" y="12" width="12" height="24" rx="2" class="tower-icon tower-deploying" opacity="0.5"/>
+        <text x="0" y="50" text-anchor="middle" class="label" style="font-size:6px;fill:var(--yellow)">B-03 ↑</text>
+      </g>
+      <line x1="560" y1="680" x2="560" y2="668" class="pipe pipe-deploying" stroke-width="1.5"/>
+      <line x1="620" y1="680" x2="620" y2="668" class="pipe pipe-deploying" stroke-width="1.5"/>
+      <line x1="680" y1="680" x2="680" y2="672" class="pipe pipe-deploying" stroke-width="1.5"/>
+      
+      <!-- B-04 still retracted -->
+      <g transform="translate(740,676)">
+        <rect x="-5" y="4" width="10" height="8" rx="1" class="tower-icon" style="stroke:var(--dim);opacity:0.3"/>
+        <text x="0" y="26" text-anchor="middle" class="label" style="font-size:6px;fill:var(--dim)">B-04</text>
+      </g>
+      
+      
+      <!-- ===== MINI CHARTS (RIGHT AREA) ===== -->
+      
+      <!-- Pressure trend chart -->
+      <rect x="850" y="380" width="320" height="100" rx="6" fill="var(--panel2)" stroke="var(--border)" stroke-width="1"/>
+      <text x="866" y="398" class="label" style="font-size:8px;letter-spacing:1.5px">PRESSURE — ZONE C (1 HR)</text>
+      <!-- Chart grid -->
+      <line x1="870" y1="420" x2="1150" y2="420" class="chart-grid-line"/>
+      <line x1="870" y1="440" x2="1150" y2="440" class="chart-grid-line"/>
+      <line x1="870" y1="460" x2="1150" y2="460" class="chart-grid-line"/>
+      <!-- Chart data -->
+      <path d="M870,420 L890,418 L910,420 L930,419 L950,420 L970,421 L990,420 L1010,425 L1030,432 L1050,440 L1060,445 L1070,450 L1080,448 L1090,444 L1100,440 L1110,438 L1120,440 L1130,438 L1140,440 L1150,439" class="chart-line"/>
+      <path d="M870,420 L890,418 L910,420 L930,419 L950,420 L970,421 L990,420 L1010,425 L1030,432 L1050,440 L1060,445 L1070,450 L1080,448 L1090,444 L1100,440 L1110,438 L1120,440 L1130,438 L1140,440 L1150,439 L1150,470 L870,470 Z" class="chart-fill"/>
+      <!-- Labels -->
+      <text x="866" y="424" class="label" style="font-size:6px">52</text>
+      <text x="866" y="444" class="label" style="font-size:6px">48</text>
+      <text x="866" y="464" class="label" style="font-size:6px">44</text>
+      <text x="870" y="478" class="label" style="font-size:6px">14:42</text>
+      <text x="1130" y="478" class="label" style="font-size:6px">NOW</text>
+      <!-- Current value -->
+      <circle cx="1150" cy="439" r="3" fill="var(--cyan)"/>
+      <text x="1160" y="443" class="label-val" style="font-size:9px;fill:var(--cyan)">48 PSI</text>
+      
+      <!-- Flow rate chart -->
+      <rect x="850" y="500" width="320" height="100" rx="6" fill="var(--panel2)" stroke="var(--border)" stroke-width="1"/>
+      <text x="866" y="518" class="label" style="font-size:8px;letter-spacing:1.5px">FLOW RATE — ZONE C (1 HR)</text>
+      <line x1="870" y1="540" x2="1150" y2="540" class="chart-grid-line"/>
+      <line x1="870" y1="560" x2="1150" y2="560" class="chart-grid-line"/>
+      <line x1="870" y1="580" x2="1150" y2="580" class="chart-grid-line"/>
+      <path d="M870,580 L890,580 L910,580 L930,580 L950,580 L970,580 L990,580 L1010,575 L1030,560 L1050,545 L1060,538 L1070,530 L1080,532 L1090,535 L1100,538 L1110,536 L1120,534 L1130,536 L1140,535 L1150,534" stroke="var(--red)" stroke-width="1.5" fill="none"/>
+      <path d="M870,580 L890,580 L910,580 L930,580 L950,580 L970,580 L990,580 L1010,575 L1030,560 L1050,545 L1060,538 L1070,530 L1080,532 L1090,535 L1100,538 L1110,536 L1120,534 L1130,536 L1140,535 L1150,534 L1150,590 L870,590 Z" fill="rgba(248,81,73,0.08)"/>
+      <text x="866" y="544" class="label" style="font-size:6px">1200</text>
+      <text x="866" y="564" class="label" style="font-size:6px">800</text>
+      <text x="866" y="584" class="label" style="font-size:6px">0</text>
+      <circle cx="1150" cy="534" r="3" fill="var(--red)"/>
+      <text x="1160" y="538" class="label-val" style="font-size:9px;fill:var(--red)">820 GPM</text>
+      
+      <!-- ===== SYSTEM OVERVIEW BOX ===== -->
+      <rect x="850" y="180" width="320" height="180" rx="6" fill="var(--panel2)" stroke="var(--border)" stroke-width="1"/>
+      <text x="866" y="200" class="label" style="font-size:8px;letter-spacing:1.5px">SYSTEM OVERVIEW</text>
+      
+      <!-- Mini gauges -->
+      <text x="880" y="225" class="label" style="font-size:7px">TOWERS ONLINE</text>
+      <text x="880" y="242" class="label-val" style="font-size:16px;fill:var(--text)">40<tspan class="label-unit"> / 40</tspan></text>
+      
+      <text x="1020" y="225" class="label" style="font-size:7px">ACTIVE SPRAY</text>
+      <text x="1020" y="242" class="label-val" style="font-size:16px;fill:var(--red)">5</text>
+      
+      <text x="880" y="270" class="label" style="font-size:7px">DEPLOYING</text>
+      <text x="880" y="287" class="label-val" style="font-size:16px;fill:var(--yellow)">3</text>
+      
+      <text x="1020" y="270" class="label" style="font-size:7px">TOTAL RESERVE</text>
+      <text x="1020" y="287" class="label-val" style="font-size:16px;fill:var(--cyan)">284K<tspan class="label-unit"> gal</tspan></text>
+      
+      <text x="880" y="315" class="label" style="font-size:7px">EST. RUNTIME @ CURRENT</text>
+      <text x="880" y="332" class="label-val" style="font-size:16px;fill:var(--text)">5h 47m</text>
+      
+      <text x="1020" y="315" class="label" style="font-size:7px">WIND</text>
+      <text x="1020" y="332" class="label-val" style="font-size:14px;fill:var(--orange)">28 km/h<tspan class="label-unit"> NE ↙</tspan></text>
+      <text x="1020" y="348" class="label" style="font-size:7px;fill:var(--orange)">GUSTING 42</text>
+      
+      <!-- LoRa mesh indicator -->
+      <rect x="850" y="620" width="320" height="60" rx="6" fill="var(--panel2)" stroke="var(--border)" stroke-width="1"/>
+      <text x="866" y="640" class="label" style="font-size:8px;letter-spacing:1.5px">LoRa MESH NETWORK</text>
+      <text x="866" y="660" class="label" style="font-size:7px">SIGNAL STRENGTH</text>
+      <!-- Signal bars -->
+      <g transform="translate(960,648)">
+        <rect x="0" y="8" width="4" height="4" rx="1" fill="var(--green)"/>
+        <rect x="6" y="5" width="4" height="7" rx="1" fill="var(--green)"/>
+        <rect x="12" y="2" width="4" height="10" rx="1" fill="var(--green)"/>
+        <rect x="18" y="0" width="4" height="12" rx="1" fill="var(--green)"/>
+        <text x="30" y="11" class="label" style="font-size:8px;fill:var(--green)">EXCELLENT — ALL NODES</text>
+      </g>
+      <text x="866" y="674" class="label" style="font-size:7px">FREQ: 915 MHz ISM • BW: 125 kHz • SF7</text>
+      
+      <!-- Fire origin warning -->
+      <rect x="850" y="130" width="320" height="36" rx="6" fill="rgba(248,81,73,0.08)" stroke="var(--red)" stroke-width="1">
+        <animate attributeName="opacity" values="1;0.7;1" dur="2s" repeatCount="indefinite"/>
+      </rect>
+      <text x="878" y="150" class="label-val" style="font-size:10px;fill:var(--red)">🔥 FIRE — ZONE C INDUSTRIAL</text>
+      <text x="878" y="162" class="label" style="font-size:7px;fill:var(--dim)">Ember cast from NE treeline • 34°C • RH 18%</text>
+
+    </svg>
+  </div>
   
-  <!-- LEFT: ZONE LIST -->
-  <div class="left-panel">
-    <div class="section-title">Zone Status — Fort St. James</div>
-    
-    <div class="zone-card active">
-      <div class="zone-header">
-        <span class="zone-name">Zone C — Industrial East</span>
-        <span class="zone-badge badge-active">Active</span>
-      </div>
-      <div class="zone-stats">
-        <div class="zone-stat">Towers: <strong style="color:var(--red)">5/5 spraying</strong></div>
-        <div class="zone-stat">Water: <strong style="color:var(--yellow)">62%</strong></div>
-        <div class="zone-stat">Pressure: <strong>48 PSI</strong></div>
-        <div class="zone-stat">Flow: <strong>820 GPM</strong></div>
-      </div>
-    </div>
-    
-    <div class="zone-card deploying">
-      <div class="zone-header">
-        <span class="zone-name">Zone B — First Nations</span>
-        <span class="zone-badge badge-deploying">Deploying</span>
-      </div>
-      <div class="zone-stats">
-        <div class="zone-stat">Towers: <strong style="color:var(--yellow)">3/4 ready</strong></div>
-        <div class="zone-stat">Water: <strong style="color:var(--green)">94%</strong></div>
-        <div class="zone-stat">Pressure: <strong>55 PSI</strong></div>
-        <div class="zone-stat">Flow: <strong>0 GPM</strong></div>
-      </div>
-    </div>
-    
-    <div class="zone-card standby">
-      <div class="zone-header">
-        <span class="zone-name">Zone A — Hospital / Shelter</span>
-        <span class="zone-badge badge-standby">Standby</span>
-      </div>
-      <div class="zone-stats">
-        <div class="zone-stat">Towers: <strong>5/5 ready</strong></div>
-        <div class="zone-stat">Water: <strong style="color:var(--green)">98%</strong></div>
-        <div class="zone-stat">Pressure: <strong>52 PSI</strong></div>
-        <div class="zone-stat">Flow: <strong>0 GPM</strong></div>
-      </div>
-    </div>
-    
-    <div class="zone-card standby">
-      <div class="zone-header">
-        <span class="zone-name">Zone D — Downtown Core</span>
-        <span class="zone-badge badge-standby">Standby</span>
-      </div>
-      <div class="zone-stats">
-        <div class="zone-stat">Towers: <strong>4/4 ready</strong></div>
-        <div class="zone-stat">Water: <strong style="color:var(--green)">97%</strong></div>
-        <div class="zone-stat">Pressure: <strong>50 PSI</strong></div>
-        <div class="zone-stat">Flow: <strong>0 GPM</strong></div>
-      </div>
-    </div>
-    
-    <div class="zone-card standby">
-      <div class="zone-header">
-        <span class="zone-name">Zone E — Stuart Lake Marina</span>
-        <span class="zone-badge badge-standby">Standby</span>
-      </div>
-      <div class="zone-stats">
-        <div class="zone-stat">Towers: <strong>4/4 ready</strong></div>
-        <div class="zone-stat">Water: <strong style="color:var(--green)">99%</strong></div>
-        <div class="zone-stat">Pressure: <strong>51 PSI</strong></div>
-        <div class="zone-stat">Flow: <strong>0 GPM</strong></div>
-      </div>
-    </div>
-
-    <div style="margin-top:16px">
-      <div class="section-title">System Summary</div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;line-height:2;color:var(--text-dim)">
-        Total Towers: <strong style="color:var(--text)">40</strong><br>
-        Active Spraying: <strong style="color:var(--red)">5</strong><br>
-        Deploying: <strong style="color:var(--yellow)">3</strong><br>
-        Standby: <strong style="color:var(--green)">32</strong><br>
-        Total Cistern Capacity: <strong style="color:var(--text)">320,000 gal</strong><br>
-        Current Reserve: <strong style="color:var(--cyan)">284,600 gal</strong><br>
-        Est. Runtime @ Current Flow: <strong style="color:var(--text)">5h 47m</strong>
-      </div>
-    </div>
-  </div>
-
-  <!-- CENTER: MAP -->
-  <div class="center-panel">
-    <div class="map-bg"></div>
-    <div class="map-grid"></div>
-    
-    <!-- Mesh network lines -->
-    <div class="mesh-lines">
-      <svg viewBox="0 0 1000 800" preserveAspectRatio="none">
-        <!-- Zone C mesh (active) -->
-        <line class="mesh-line active" x1="680" y1="280" x2="720" y2="340"/>
-        <line class="mesh-line active" x1="720" y1="340" x2="760" y2="290"/>
-        <line class="mesh-line active" x1="760" y1="290" x2="740" y2="380"/>
-        <line class="mesh-line active" x1="680" y1="280" x2="740" y2="380"/>
-        <line class="mesh-line active" x1="700" y1="400" x2="740" y2="380"/>
-        <line class="mesh-line active" x1="700" y1="400" x2="680" y2="280"/>
-        <!-- Zone A mesh -->
-        <line class="mesh-line" x1="200" y1="200" x2="260" y2="240"/>
-        <line class="mesh-line" x1="260" y1="240" x2="220" y2="300"/>
-        <line class="mesh-line" x1="200" y1="200" x2="220" y2="300"/>
-        <line class="mesh-line" x1="260" y1="240" x2="300" y2="200"/>
-        <line class="mesh-line" x1="300" y1="200" x2="280" y2="310"/>
-        <line class="mesh-line" x1="220" y1="300" x2="280" y2="310"/>
-        <!-- Zone B mesh -->
-        <line class="mesh-line" x1="420" y1="160" x2="480" y2="200"/>
-        <line class="mesh-line" x1="480" y1="200" x2="440" y2="260"/>
-        <line class="mesh-line" x1="420" y1="160" x2="440" y2="260"/>
-        <line class="mesh-line" x1="480" y1="200" x2="500" y2="280"/>
-        <!-- Zone D mesh -->
-        <line class="mesh-line" x1="340" y1="420" x2="400" y2="460"/>
-        <line class="mesh-line" x1="400" y1="460" x2="360" y2="520"/>
-        <line class="mesh-line" x1="340" y1="420" x2="360" y2="520"/>
-        <line class="mesh-line" x1="400" y1="460" x2="420" y2="530"/>
-        <!-- Zone E mesh -->
-        <line class="mesh-line" x1="160" y1="500" x2="220" y2="540"/>
-        <line class="mesh-line" x1="220" y1="540" x2="180" y2="600"/>
-        <line class="mesh-line" x1="160" y1="500" x2="180" y2="600"/>
-        <line class="mesh-line" x1="220" y1="540" x2="260" y2="590"/>
-        <!-- Cross-zone links -->
-        <line class="mesh-line" x1="280" y1="310" x2="340" y2="420" style="stroke-dasharray:8 8"/>
-        <line class="mesh-line" x1="300" y1="200" x2="420" y2="160" style="stroke-dasharray:8 8"/>
-        <line class="mesh-line" x1="500" y1="280" x2="680" y2="280" style="stroke-dasharray:8 8;stroke:rgba(239,68,68,0.15)"/>
-        <line class="mesh-line" x1="360" y1="520" x2="260" y2="590" style="stroke-dasharray:8 8"/>
-      </svg>
-    </div>
-    
-    <!-- ZONE OVERLAYS -->
-    <div class="zone-overlay" style="left:14%;top:16%;width:18%;height:24%;border-color:var(--green);color:var(--green)">ZONE A</div>
-    <div class="zone-overlay" style="left:38%;top:12%;width:16%;height:22%;border-color:var(--yellow);color:var(--yellow)">ZONE B</div>
-    <div class="zone-overlay" style="left:62%;top:22%;width:18%;height:26%;border-color:var(--red);color:var(--red);opacity:0.35">ZONE C</div>
-    <div class="zone-overlay" style="left:30%;top:46%;width:16%;height:20%;border-color:var(--green);color:var(--green)">ZONE D</div>
-    <div class="zone-overlay" style="left:12%;top:56%;width:18%;height:22%;border-color:var(--green);color:var(--green)">ZONE E</div>
-    
-    <!-- BUILDINGS -->
-    <div class="building" style="left:17%;top:22%;width:40px;height:30px;">
-      <div class="building-label">Hospital</div>
-    </div>
-    <div class="building" style="left:24%;top:28%;width:35px;height:25px;">
-      <div class="building-label">Emergency Shelter</div>
-    </div>
-    <div class="building" style="left:42%;top:18%;width:30px;height:25px;">
-      <div class="building-label">Community Centre</div>
-    </div>
-    <div class="building fire" style="left:68%;top:32%;width:50px;height:35px;">
-      <div class="building-label" style="color:var(--red)">⚠ Mill Complex</div>
-    </div>
-    <div class="building" style="left:72%;top:40%;width:30px;height:20px;">
-      <div class="building-label">Fuel Storage</div>
-    </div>
-    <div class="building" style="left:35%;top:52%;width:35px;height:20px;">
-      <div class="building-label">Town Hall</div>
-    </div>
-    <div class="building" style="left:16%;top:64%;width:30px;height:20px;">
-      <div class="building-label">Marina Office</div>
-    </div>
-    
-    <!-- SPRAY RADII -->
-    <div class="spray-radius spray-red" style="left:calc(65% - 50px);top:calc(28% - 50px);width:100px;height:100px;"></div>
-    <div class="spray-radius spray-red" style="left:calc(69% - 50px);top:calc(35% - 50px);width:100px;height:100px;"></div>
-    <div class="spray-radius spray-red" style="left:calc(73% - 50px);top:calc(29% - 50px);width:100px;height:100px;"></div>
-    <div class="spray-radius spray-red" style="left:calc(71% - 50px);top:calc(42% - 50px);width:100px;height:100px;"></div>
-    <div class="spray-radius spray-red" style="left:calc(67% - 50px);top:calc(45% - 50px);width:100px;height:100px;"></div>
-    
-    <!-- TOWER NODES — Zone A (Standby) -->
-    <div class="tower-node tower-green" style="left:17%;top:20%;" title="A-01">01</div>
-    <div class="tower-node tower-green" style="left:23%;top:24%;" title="A-02">02</div>
-    <div class="tower-node tower-green" style="left:19%;top:30%;" title="A-03">03</div>
-    <div class="tower-node tower-green" style="left:27%;top:20%;" title="A-04">04</div>
-    <div class="tower-node tower-green" style="left:25%;top:31%;" title="A-05">05</div>
-
-    <!-- Zone B (Deploying) -->
-    <div class="tower-node tower-yellow" style="left:40%;top:16%;" title="B-01">06</div>
-    <div class="tower-node tower-yellow" style="left:46%;top:20%;" title="B-02">07</div>
-    <div class="tower-node tower-yellow" style="left:42%;top:26%;" title="B-03">08</div>
-    <div class="tower-node tower-green" style="left:48%;top:28%;" title="B-04">09</div>
-
-    <!-- Zone C (Active - spraying) -->
-    <div class="tower-node tower-red" style="left:65%;top:28%;" title="C-01">10</div>
-    <div class="tower-node tower-red" style="left:69%;top:34%;" title="C-02">11</div>
-    <div class="tower-node tower-red" style="left:73%;top:29%;" title="C-03">12</div>
-    <div class="tower-node tower-red" style="left:71%;top:42%;" title="C-04">13</div>
-    <div class="tower-node tower-red" style="left:67%;top:45%;" title="C-05">14</div>
-
-    <!-- Zone D (Standby) -->
-    <div class="tower-node tower-green" style="left:32%;top:48%;" title="D-01">15</div>
-    <div class="tower-node tower-green" style="left:38%;top:52%;" title="D-02">16</div>
-    <div class="tower-node tower-green" style="left:34%;top:56%;" title="D-03">17</div>
-    <div class="tower-node tower-green" style="left:40%;top:58%;" title="D-04">18</div>
-
-    <!-- Zone E (Standby) -->
-    <div class="tower-node tower-green" style="left:14%;top:56%;" title="E-01">19</div>
-    <div class="tower-node tower-green" style="left:20%;top:60%;" title="E-02">20</div>
-    <div class="tower-node tower-green" style="left:16%;top:66%;" title="E-03">21</div>
-    <div class="tower-node tower-green" style="left:24%;top:64%;" title="E-04">22</div>
-    
-    <!-- Map header -->
-    <div class="map-header">
-      <div class="map-title">Network Topology — Live</div>
-      <div class="map-subtitle">Fort St. James Pilot Deployment</div>
-    </div>
-    
-    <!-- Alert banner -->
-    <div class="alert-banner">
-      <span class="alert-icon">🔥</span>
-      <div>
-        <div class="alert-text">FIRE DETECTED — ZONE C INDUSTRIAL</div>
-        <div class="alert-sub">Ember cast from NE treeline • Wind: 28 km/h NE • Temp: 34°C</div>
-      </div>
-    </div>
-    
-    <!-- Legend -->
-    <div class="map-legend">
-      <div class="legend-title">Tower Status</div>
-      <div class="legend-item"><div class="legend-dot" style="background:rgba(239,68,68,0.3);border-color:var(--red)"></div> Active — Spraying</div>
-      <div class="legend-item"><div class="legend-dot" style="background:rgba(234,179,8,0.3);border-color:var(--yellow)"></div> Deploying</div>
-      <div class="legend-item"><div class="legend-dot" style="background:rgba(34,197,94,0.3);border-color:var(--green)"></div> Standby — Ready</div>
-      <div style="margin-top:6px">
-        <div class="legend-item" style="font-size:10px;color:var(--text-dim)"><span style="color:var(--cyan)">---</span> LoRa Mesh Link</div>
-        <div class="legend-item" style="font-size:10px;color:var(--text-dim)"><span style="border:1px dashed var(--red);width:10px;height:10px;display:inline-block;border-radius:50%"></span> Spray Coverage (1 ha)</div>
-      </div>
-    </div>
-    
-    <!-- Wind indicator -->
-    <div style="position:absolute;top:80px;right:16px;z-index:5;text-align:right;">
-      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;">Wind</div>
-      <div style="font-size:24px;margin:2px 0;">↙</div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--orange);">28 km/h</div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);">NE gusting 42</div>
-    </div>
-    
-    <!-- Fire origin indicator -->
-    <div style="position:absolute;right:6%;top:18%;z-index:3;text-align:center;">
-      <div style="font-size:28px;animation:pulse-fast 0.8s infinite;">🔥</div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--red);margin-top:2px;">ORIGIN</div>
-    </div>
-    
-    <!-- Smoke plume indicator -->
-    <div style="position:absolute;right:4%;top:10%;z-index:3;opacity:0.4;font-size:40px;">🌫️</div>
-    
-  </div>
-
-  <!-- RIGHT: TELEMETRY -->
+  <!-- RIGHT PANEL -->
   <div class="right-panel">
-    <div class="section-title">System Telemetry</div>
-    
+    <div class="section-title">Telemetry</div>
     <div class="gauge-row">
-      <div class="gauge-card">
-        <div class="gauge-label">Flow Rate</div>
-        <div class="gauge-value" style="color:var(--red)">820<span class="gauge-unit"> GPM</span></div>
+      <div class="gauge">
+        <div class="gauge-label">Flow</div>
+        <div class="gauge-val" style="color:var(--red)">820<span class="gauge-unit"> GPM</span></div>
         <div class="gauge-bar"><div class="gauge-fill" style="width:68%;background:var(--red)"></div></div>
       </div>
-      <div class="gauge-card">
-        <div class="gauge-label">Main Pressure</div>
-        <div class="gauge-value" style="color:var(--cyan)">48<span class="gauge-unit"> PSI</span></div>
+      <div class="gauge">
+        <div class="gauge-label">Pressure</div>
+        <div class="gauge-val" style="color:var(--cyan)">48<span class="gauge-unit"> PSI</span></div>
         <div class="gauge-bar"><div class="gauge-fill" style="width:60%;background:var(--cyan)"></div></div>
       </div>
     </div>
-    
     <div class="gauge-row">
-      <div class="gauge-card">
+      <div class="gauge">
         <div class="gauge-label">Pump RPM</div>
-        <div class="gauge-value" style="color:var(--orange)">2,840</div>
+        <div class="gauge-val" style="color:var(--orange)">2,840</div>
         <div class="gauge-bar"><div class="gauge-fill" style="width:78%;background:var(--orange)"></div></div>
       </div>
-      <div class="gauge-card">
+      <div class="gauge">
         <div class="gauge-label">Generator</div>
-        <div class="gauge-value" style="color:var(--green)">14.2<span class="gauge-unit"> kW</span></div>
+        <div class="gauge-val" style="color:var(--green)">14.2<span class="gauge-unit"> kW</span></div>
         <div class="gauge-bar"><div class="gauge-fill" style="width:71%;background:var(--green)"></div></div>
       </div>
     </div>
     
     <div class="section-title">Cistern Levels</div>
-    
-    <div class="water-tank">
-      <div class="tank-header">
-        <span class="tank-name">Zone C — Cisterns (5)</span>
+    <div class="tank-card">
+      <div class="tank-hdr">
+        <span class="tank-name" style="color:var(--red)">Zone C (×5)</span>
         <span class="tank-pct" style="color:var(--yellow)">62%</span>
       </div>
-      <div class="tank-bar">
-        <div class="tank-fill" style="width:62%;background:linear-gradient(90deg,var(--yellow),var(--orange))"></div>
-      </div>
-      <div class="tank-detail">
-        <span>24,800 / 40,000 gal</span>
-        <span>↓ 14 GPM drain</span>
-      </div>
+      <div class="tank-bar"><div class="tank-fill" style="width:62%;background:linear-gradient(90deg,var(--yellow),var(--orange))"></div></div>
+      <div class="tank-detail"><span>24,800 / 40,000 gal</span><span style="color:var(--red)">↓ 14 GPM</span></div>
     </div>
-    
-    <div class="water-tank">
-      <div class="tank-header">
-        <span class="tank-name">Zone B — Cisterns (4)</span>
+    <div class="tank-card">
+      <div class="tank-hdr">
+        <span class="tank-name">Zone B (×4)</span>
         <span class="tank-pct" style="color:var(--green)">94%</span>
       </div>
-      <div class="tank-bar">
-        <div class="tank-fill" style="width:94%;background:linear-gradient(90deg,var(--cyan),var(--green))"></div>
-      </div>
-      <div class="tank-detail">
-        <span>30,080 / 32,000 gal</span>
-        <span>● Full</span>
-      </div>
+      <div class="tank-bar"><div class="tank-fill" style="width:94%;background:linear-gradient(90deg,var(--cyan),var(--green))"></div></div>
+      <div class="tank-detail"><span>30,080 / 32,000 gal</span><span>● Full</span></div>
     </div>
-    
-    <div class="water-tank">
-      <div class="tank-header">
-        <span class="tank-name">Zone A — Cisterns (5)</span>
+    <div class="tank-card">
+      <div class="tank-hdr">
+        <span class="tank-name">Zone A (×5)</span>
         <span class="tank-pct" style="color:var(--green)">98%</span>
       </div>
-      <div class="tank-bar">
-        <div class="tank-fill" style="width:98%;background:linear-gradient(90deg,var(--cyan),var(--green))"></div>
-      </div>
-      <div class="tank-detail">
-        <span>39,200 / 40,000 gal</span>
-        <span>● Full</span>
-      </div>
+      <div class="tank-bar"><div class="tank-fill" style="width:98%;background:linear-gradient(90deg,var(--cyan),var(--green))"></div></div>
+      <div class="tank-detail"><span>39,200 / 40,000 gal</span><span>● Full</span></div>
     </div>
-    
-    <div class="section-title">Pressure Trend — Zone C</div>
-    <div class="chart-card">
-      <canvas class="chart-canvas" id="pressureChart"></canvas>
+    <div class="tank-card">
+      <div class="tank-hdr">
+        <span class="tank-name">Zone D (×4)</span>
+        <span class="tank-pct" style="color:var(--green)">97%</span>
+      </div>
+      <div class="tank-bar"><div class="tank-fill" style="width:97%;background:linear-gradient(90deg,var(--cyan),var(--green))"></div></div>
+      <div class="tank-detail"><span>31,040 / 32,000 gal</span><span>● Full</span></div>
+    </div>
+    <div class="tank-card">
+      <div class="tank-hdr">
+        <span class="tank-name">Zone E (×4)</span>
+        <span class="tank-pct" style="color:var(--green)">99%</span>
+      </div>
+      <div class="tank-bar"><div class="tank-fill" style="width:99%;background:linear-gradient(90deg,var(--cyan),var(--green))"></div></div>
+      <div class="tank-detail"><span>31,680 / 32,000 gal</span><span>● Full</span></div>
     </div>
     
     <div class="section-title">Event Log</div>
-    <div class="event-log">
-      <div class="log-entry">
-        <span class="log-time">15:42</span>
-        <span class="log-icon">🔴</span>
-        <span class="log-msg critical">Zone C — All 5 towers active, spray logic engaged</span>
-      </div>
-      <div class="log-entry">
-        <span class="log-time">15:41</span>
-        <span class="log-icon">🟡</span>
-        <span class="log-msg warning">Zone B — Towers B-01, B-02, B-03 deploying (precautionary)</span>
-      </div>
-      <div class="log-entry">
-        <span class="log-time">15:40</span>
-        <span class="log-icon">🔴</span>
-        <span class="log-msg critical">FIRE DETECTED — Ember cast at Mill Complex, Zone C</span>
-      </div>
-      <div class="log-entry">
-        <span class="log-time">15:39</span>
-        <span class="log-icon">🟡</span>
-        <span class="log-msg warning">Wind shift detected: NE 28 km/h gusting 42</span>
-      </div>
-      <div class="log-entry">
-        <span class="log-time">15:38</span>
-        <span class="log-icon">⚪</span>
-        <span class="log-msg">Zone C — VFD ramping pump to 2840 RPM</span>
-      </div>
-      <div class="log-entry">
-        <span class="log-time">15:37</span>
-        <span class="log-icon">⚪</span>
-        <span class="log-msg">Backflow preventer valve — closed confirmed (all zones)</span>
-      </div>
-      <div class="log-entry">
-        <span class="log-time">15:35</span>
-        <span class="log-icon">🟢</span>
-        <span class="log-msg">System health check — all 40 nodes reporting nominal</span>
-      </div>
-      <div class="log-entry">
-        <span class="log-time">15:30</span>
-        <span class="log-icon">⚪</span>
-        <span class="log-msg">Smoke plume detected NE treeline — monitoring initiated</span>
-      </div>
+    <div>
+      <div class="log-entry"><span class="log-time">15:42</span><span class="log-msg log-crit">🔴 Zone C — 5/5 towers active, spray engaged</span></div>
+      <div class="log-entry"><span class="log-time">15:41</span><span class="log-msg log-warn">🟡 Zone B — Towers deploying (precautionary)</span></div>
+      <div class="log-entry"><span class="log-time">15:40</span><span class="log-msg log-crit">🔴 FIRE — Ember cast at Mill Complex</span></div>
+      <div class="log-entry"><span class="log-time">15:39</span><span class="log-msg log-warn">🟡 Wind shift: NE 28 km/h gusting 42</span></div>
+      <div class="log-entry"><span class="log-time">15:38</span><span class="log-msg">⚪ Zone C VFD ramping to 2840 RPM</span></div>
+      <div class="log-entry"><span class="log-time">15:37</span><span class="log-msg">⚪ Backflow preventer — closed all zones</span></div>
+      <div class="log-entry"><span class="log-time">15:35</span><span class="log-msg">🟢 Health check — 40/40 nodes nominal</span></div>
+      <div class="log-entry"><span class="log-time">15:30</span><span class="log-msg">⚪ Smoke plume NE — monitoring</span></div>
     </div>
   </div>
-  
 </div>
 
-<!-- BOTTOM STATUS BAR -->
-<div class="statusbar">
-  <div class="statusbar-item"><div class="statusbar-dot" style="background:var(--green)"></div> SCADA v2.4.1</div>
-  <div class="statusbar-item"><div class="statusbar-dot" style="background:var(--green)"></div> LoRa Mesh: 40/40</div>
-  <div class="statusbar-item"><div class="statusbar-dot" style="background:var(--green)"></div> Generator: Online</div>
-  <div class="statusbar-item"><div class="statusbar-dot" style="background:var(--green)"></div> Municipal Feed: Connected</div>
-  <div class="statusbar-item"><div class="statusbar-dot" style="background:var(--yellow)"></div> AHJ Dashboard: 1 operator</div>
-  <div class="statusbar-item" style="margin-left:auto">Carmanah Wildfire × HydroDome Systems</div>
+<div class="bottombar">
+  <div class="bb-item"><div class="dot" style="width:5px;height:5px;background:var(--green)"></div> SCADA v2.4.1</div>
+  <div class="bb-item"><div class="dot" style="width:5px;height:5px;background:var(--green)"></div> LoRa 40/40</div>
+  <div class="bb-item"><div class="dot" style="width:5px;height:5px;background:var(--green)"></div> Gen: Online</div>
+  <div class="bb-item"><div class="dot" style="width:5px;height:5px;background:var(--green)"></div> Muni Feed: OK</div>
+  <div class="bb-item"><div class="dot" style="width:5px;height:5px;background:var(--yellow)"></div> AHJ: 1 operator</div>
+  <div class="bb-item" style="margin-left:auto">Carmanah Wildfire × HydroDome Systems</div>
 </div>
 
 <script>
-// Live clock
-function updateClock() {
-  const now = new Date();
-  const opts = { timeZone:'America/Los_Angeles', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false };
-  document.getElementById('clock').textContent = now.toLocaleString('en-CA', opts).replace(',','') + ' PST';
+function updateClock(){
+  const now=new Date();
+  document.getElementById('clock').textContent=now.toLocaleString('en-CA',{timeZone:'America/Los_Angeles',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).replace(',','')+' PST';
 }
-setInterval(updateClock, 1000);
-updateClock();
-
-// Simple pressure chart
-const canvas = document.getElementById('pressureChart');
-const ctx = canvas.getContext('2d');
-function drawChart() {
-  const w = canvas.width = canvas.offsetWidth * 2;
-  const h = canvas.height = canvas.offsetHeight * 2;
-  ctx.scale(2,2);
-  const cw = canvas.offsetWidth;
-  const ch = canvas.offsetHeight;
-  
-  // Background
-  ctx.fillStyle = 'transparent';
-  ctx.clearRect(0,0,cw,ch);
-  
-  // Grid lines
-  ctx.strokeStyle = 'rgba(30,42,58,0.5)';
-  ctx.lineWidth = 0.5;
-  for(let i=0;i<5;i++) {
-    const y = (ch/5)*i + 10;
-    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(cw,y); ctx.stroke();
-  }
-  
-  // Pressure data (simulated drop when fire starts)
-  const data = [52,52,51,52,52,53,52,51,52,50,48,46,44,43,44,46,48,48,47,48];
-  const step = cw / (data.length - 1);
-  
-  // Fill
-  ctx.beginPath();
-  ctx.moveTo(0, ch);
-  data.forEach((v,i) => {
-    const x = i * step;
-    const y = ch - ((v - 40) / 20) * ch;
-    if(i===0) ctx.lineTo(x,y); else ctx.lineTo(x,y);
-  });
-  ctx.lineTo(cw, ch);
-  ctx.closePath();
-  const grad = ctx.createLinearGradient(0,0,0,ch);
-  grad.addColorStop(0,'rgba(6,182,212,0.15)');
-  grad.addColorStop(1,'rgba(6,182,212,0)');
-  ctx.fillStyle = grad;
-  ctx.fill();
-  
-  // Line
-  ctx.beginPath();
-  data.forEach((v,i) => {
-    const x = i * step;
-    const y = ch - ((v - 40) / 20) * ch;
-    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
-  });
-  ctx.strokeStyle = '#06b6d4';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  
-  // Current value dot
-  const lastX = (data.length-1)*step;
-  const lastY = ch - ((data[data.length-1]-40)/20)*ch;
-  ctx.beginPath();
-  ctx.arc(lastX, lastY, 3, 0, Math.PI*2);
-  ctx.fillStyle = '#06b6d4';
-  ctx.fill();
-  
-  // Labels
-  ctx.fillStyle = '#64748b';
-  ctx.font = '9px JetBrains Mono';
-  ctx.fillText('60 PSI', 2, 12);
-  ctx.fillText('40 PSI', 2, ch - 2);
-  ctx.fillText('15:30', 2, ch + 12);
-  ctx.fillText('NOW', cw - 24, ch + 12);
-}
-setTimeout(drawChart, 100);
-window.addEventListener('resize', drawChart);
+setInterval(updateClock,1000);updateClock();
 </script>
-
 </body>
 </html>
